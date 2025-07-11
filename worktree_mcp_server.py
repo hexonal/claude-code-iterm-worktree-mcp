@@ -382,16 +382,44 @@ class WorktreeMCPServer:
                 if result.stdout.strip():
                     return False, f"Worktree has unpushed commits: {result.stdout.strip()}"
             else:
-                # No upstream, check if there are any commits at all
+                # No upstream, check if there are commits ahead of the base branch
+                # First get the base branch (usually main/master)
+                base_branch_result = subprocess.run(
+                    ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if base_branch_result.returncode == 0:
+                    # Extract base branch name from refs/remotes/origin/HEAD
+                    base_branch = base_branch_result.stdout.strip().split('/')[-1]
+                else:
+                    # Fallback to common base branch names
+                    for branch in ["main", "master"]:
+                        check_result = subprocess.run(
+                            ["git", "rev-parse", "--verify", f"origin/{branch}"],
+                            cwd=worktree_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        if check_result.returncode == 0:
+                            base_branch = branch
+                            break
+                    else:
+                        # If we can't determine base branch, allow deletion if working tree is clean
+                        return True, "Worktree is clean and can be deleted"
+                
+                # Check for commits ahead of base branch
                 result = subprocess.run(
-                    ["git", "log", "--oneline", "HEAD"],
+                    ["git", "log", "--oneline", f"origin/{base_branch}..HEAD"],
                     cwd=worktree_path,
                     capture_output=True,
                     text=True
                 )
                 
                 if result.returncode == 0 and result.stdout.strip():
-                    return False, f"Branch has commits but no upstream configured. Push the branch first or use --force"
+                    return False, f"Branch has commits ahead of origin/{base_branch} but no upstream configured. Push the branch first or use --force"
             
             return True, "Worktree is clean and pushed"
             
