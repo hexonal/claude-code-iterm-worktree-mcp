@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(python test_worktree_mcp.py)",
+      "Bash(python3:*)",
+      "Bash(git branch:*)",
+      "mcp__worktree__createWorktree",
+      "Bash(git worktree remove:*)",
+      "mcp__worktree__closeWorktree",
+      "mcp__worktree__activeWorktrees"
+    ],
+    "deny": []
+  }
+}
