@@ -444,6 +444,79 @@ class WorktreeMCPServer:
         except Exception as e:
             return False, f"Failed to close tab: {str(e)}"
 
+    def check_branch_has_commits(self, worktree_name: str) -> tuple[bool, str]:
+        """Check if the worktree's branch has any commits beyond the base branch"""
+        parent_dir = os.path.dirname(os.getcwd())
+        worktree_path = os.path.join(parent_dir, worktree_name)
+        
+        try:
+            # Get the current branch name
+            branch_result = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            current_branch = branch_result.stdout.strip()
+            
+            # Get base branch (usually main/master)
+            base_branch_result = subprocess.run(
+                ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True
+            )
+            
+            if base_branch_result.returncode == 0:
+                base_branch = base_branch_result.stdout.strip().split('/')[-1]
+            else:
+                # Fallback to common base branch names
+                for branch in ["main", "master"]:
+                    check_result = subprocess.run(
+                        ["git", "rev-parse", "--verify", f"origin/{branch}"],
+                        cwd=worktree_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    if check_result.returncode == 0:
+                        base_branch = branch
+                        break
+                else:
+                    return False, "Could not determine base branch"
+            
+            # Check for commits ahead of base branch
+            result = subprocess.run(
+                ["git", "log", "--oneline", f"origin/{base_branch}..HEAD"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                has_commits = bool(result.stdout.strip())
+                return has_commits, current_branch
+            else:
+                return False, "Failed to check commit history"
+                
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to check branch commits: {e.stderr}"
+
+    def delete_branch(self, branch_name: str) -> tuple[bool, str]:
+        """Delete a git branch"""
+        try:
+            # Delete the branch
+            result = subprocess.run(
+                ["git", "branch", "-D", branch_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True, f"Deleted branch '{branch_name}'"
+            
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to delete branch '{branch_name}': {e.stderr}"
+
     async def handle_close_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Handle the closeWorktree tool call"""
         worktree_name = arguments["worktree_name"]
@@ -460,10 +533,16 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Step 2: Get tab ID before removing from manager
+        # Step 2: Check if branch has commits and get branch name
+        has_commits, branch_name_or_error = self.check_branch_has_commits(worktree_name)
+        branch_to_delete = None
+        if isinstance(branch_name_or_error, str) and not has_commits:
+            branch_to_delete = branch_name_or_error
+        
+        # Step 3: Get tab ID before removing from manager
         tab_id = self.get_worktree_tab_id(worktree_name)
         
-        # Step 3: Remove worktree
+        # Step 4: Remove worktree
         try:
             parent_dir = os.path.dirname(os.getcwd())
             worktree_path = os.path.join(parent_dir, worktree_name)
@@ -485,17 +564,25 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Step 4: Close iTerm tab if it exists
+        # Step 5: Delete branch if it has no commits
+        branch_deleted = False
+        if branch_to_delete:
+            success, delete_msg = self.delete_branch(branch_to_delete)
+            branch_deleted = success
+        
+        # Step 6: Close iTerm tab if it exists
         tab_closed = False
         if tab_id:
             success, tab_msg = await self.close_iterm_tab(tab_id)
             tab_closed = success
         
-        # Step 5: Remove from manager metadata
+        # Step 7: Remove from manager metadata
         self.remove_worktree_from_manager(worktree_name)
         
         # Build success message
         message = f"✅ Successfully closed worktree '{worktree_name}'"
+        if branch_deleted:
+            message += f" and deleted branch '{branch_to_delete}'"
         if tab_closed:
             message += " and closed iTerm tab"
         elif tab_id:
