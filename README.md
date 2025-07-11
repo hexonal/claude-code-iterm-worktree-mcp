@@ -2,6 +2,8 @@
 
 A Model Context Protocol (MCP) server that automates git worktree management with iTerm2 integration for Claude Code.
 
+https://github.com/user-attachments/assets/16188878-8fe8-450c-b2a3-cfd617d74f43
+
 ## Installation
 
 Add to Claude Code:
