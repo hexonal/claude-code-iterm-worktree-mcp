@@ -70,6 +70,10 @@ class WorktreeMCPServer:
                         "description": {
                             "type": "string",
                             "description": "Description of the task to do"
+                        },
+                        "start_claude": {
+                            "type": "boolean",
+                            "description": "Whether to automatically start Claude with the task description (default: true)"
                         }
                     },
                     "required": ["feature_name", "branch_name", "worktree_folder", "description"]
@@ -278,7 +282,7 @@ class WorktreeMCPServer:
         except Exception as e:
             return False, f"Failed to create metadata file: {str(e)}"
 
-    async def automate_iterm(self, worktree_folder: str, description: str) -> tuple[bool, str]:
+    async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True) -> tuple[bool, str]:
         """Automate iTerm to open new tab, cd to worktree, start claude, and paste description"""
         try:
             # Connect to iTerm
@@ -306,19 +310,10 @@ class WorktreeMCPServer:
             worktree_path = os.path.join(parent_dir, worktree_folder)
             await session.async_send_text(f"cd '{worktree_path}'\n")
             
-            # Send claude command with disallowed tools
-            await session.async_send_text("claude --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees\n")
-            
-            # Wait 1 second then send return key
-            await asyncio.sleep(1)
-            await session.async_send_text("\r")
-            
-            # Paste description
-            await session.async_send_text(description)
-            
-            # Wait 0.5 seconds then send return key again
-            await asyncio.sleep(0.5)
-            await session.async_send_text("\r")
+            # Optionally send claude command with disallowed tools and description as argument
+            if start_claude:
+                escaped_description = description.replace('"', '\\"')
+                await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees\n')
             
             # Create metadata file
             metadata_success, metadata_msg = self.create_worktree_metadata(worktree_folder, tab_id)
@@ -629,7 +624,8 @@ class WorktreeMCPServer:
             }
         
         # Steps 2-6: iTerm automation
-        success, iterm_msg = await self.automate_iterm(worktree_folder, description)
+        start_claude = arguments.get("start_claude", True)  # Default to True for backward compatibility
+        success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude)
         if not success:
             return {
                 "content": [
