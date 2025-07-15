@@ -15,9 +15,6 @@ class WorktreeMCPServer:
         # Check if running in iTerm
         self.is_iterm = self.detect_iterm()
         
-        # Ensure .worktree-metadata.json is excluded from git
-        self.setup_git_exclude()
-        
         # Only provide tools if running in iTerm
         self.tools = self.get_tools() if self.is_iterm else []
 
@@ -101,110 +98,157 @@ class WorktreeMCPServer:
                     "properties": {},
                     "required": []
                 }
+            },
+            {
+                "name": "switchToWorktree",
+                "description": "Switch to a worktree tab in iTerm2",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "worktree_name": {
+                            "type": "string",
+                            "description": "The name of the worktree folder to switch to"
+                        },
+                        "tab_id": {
+                            "type": "string",
+                            "description": "Optional specific tab ID to switch to. If not provided, will find tab by worktree path"
+                        }
+                    },
+                    "required": ["worktree_name"]
+                }
+            },
+            {
+                "name": "openWorktree",
+                "description": "Open an existing worktree in a new iTerm2 tab",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "worktree_name": {
+                            "type": "string",
+                            "description": "The name of the worktree folder to open"
+                        },
+                        "force": {
+                            "type": "boolean",
+                            "description": "Force open in new tab even if worktree is already open elsewhere (default: false)"
+                        }
+                    },
+                    "required": ["worktree_name"]
+                }
             }
         ]
 
-    def setup_git_exclude(self):
-        """Add metadata files to .git/info/exclude if not already there"""
+    async def find_tab_by_path(self, worktree_path: str) -> Optional[str]:
+        """Find iTerm2 tab ID that has the given worktree path as working directory"""
         try:
-            # Get git directory
+            connection = await iterm2.Connection.async_create()
+            app = await iterm2.async_get_app(connection)
+            
+            # Normalize the worktree path for comparison
+            normalized_worktree = os.path.normpath(worktree_path)
+            
+            # Search through all tabs to find one with matching working directory
+            for window in app.windows:
+                for tab in window.tabs:
+                    session = tab.current_session
+                    if session:
+                        # Get the working directory of the session
+                        try:
+                            working_dir = await session.async_get_variable("path")
+                            if working_dir:
+                                normalized_working_dir = os.path.normpath(working_dir)
+                                if normalized_working_dir == normalized_worktree:
+                                    return tab.tab_id
+                        except:
+                            # If we can't get the path, continue to next session
+                            continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"Warning: Could not search iTerm tabs: {e}", file=sys.stderr)
+            return None
+
+    async def find_all_tabs_by_path(self, worktree_path: str) -> List[Dict[str, Any]]:
+        """Find all iTerm2 tabs that have the given worktree path as working directory"""
+        try:
+            connection = await iterm2.Connection.async_create()
+            app = await iterm2.async_get_app(connection)
+            
+            # Normalize the worktree path for comparison
+            normalized_worktree = os.path.normpath(worktree_path)
+            
+            # Get current window to determine thisWindow flag
+            current_window = app.current_window
+            current_window_id = current_window.window_id if current_window else None
+            
+            matching_tabs = []
+            
+            # Search through all tabs to find ones with matching working directory
+            for window in app.windows:
+                for tab in window.tabs:
+                    session = tab.current_session
+                    if session:
+                        # Get the working directory of the session
+                        try:
+                            working_dir = await session.async_get_variable("path")
+                            if working_dir:
+                                normalized_working_dir = os.path.normpath(working_dir)
+                                if normalized_working_dir == normalized_worktree:
+                                    matching_tabs.append({
+                                        "tabId": tab.tab_id,
+                                        "windowId": window.window_id,
+                                        "thisWindow": window.window_id == current_window_id
+                                    })
+                        except:
+                            # If we can't get the path, continue to next session
+                            continue
+            
+            return matching_tabs
+            
+        except Exception as e:
+            print(f"Warning: Could not search iTerm tabs: {e}", file=sys.stderr)
+            return []
+
+
+    def get_all_git_worktrees(self) -> List[Dict[str, str]]:
+        """Get all git worktrees from git command"""
+        try:
             result = subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
+                ["git", "worktree", "list", "--porcelain"],
                 capture_output=True,
                 text=True,
                 check=True
             )
-            git_dir = result.stdout.strip()
             
-            # Path to exclude file
-            exclude_file = os.path.join(git_dir, "info", "exclude")
+            worktrees = []
+            current_worktree = {}
             
-            # Ensure info directory exists
-            info_dir = os.path.dirname(exclude_file)
-            os.makedirs(info_dir, exist_ok=True)
+            for line in result.stdout.strip().split('\n'):
+                if not line:
+                    if current_worktree:
+                        worktrees.append(current_worktree)
+                        current_worktree = {}
+                    continue
+                    
+                if line.startswith('worktree '):
+                    current_worktree['path'] = line[9:]  # Remove 'worktree ' prefix
+                    # Extract folder name from path
+                    current_worktree['folder'] = os.path.basename(current_worktree['path'])
+                elif line.startswith('branch '):
+                    current_worktree['branch'] = line[7:]  # Remove 'branch ' prefix
+                elif line.startswith('HEAD '):
+                    current_worktree['head'] = line[5:]  # Remove 'HEAD ' prefix
             
-            # Files to exclude
-            exclude_entries = [
-                ".worktree-metadata.json",
-                ".worktree-manager-metadata.json"
-            ]
+            # Add the last worktree if exists
+            if current_worktree:
+                worktrees.append(current_worktree)
             
-            # Read existing content
-            existing_content = ""
-            if os.path.exists(exclude_file):
-                with open(exclude_file, 'r') as f:
-                    existing_content = f.read()
+            return worktrees
             
-            # Add missing entries
-            entries_to_add = []
-            for entry in exclude_entries:
-                if entry not in existing_content:
-                    entries_to_add.append(entry)
-            
-            if entries_to_add:
-                with open(exclude_file, 'a') as f:
-                    if existing_content and not existing_content.endswith('\n'):
-                        f.write('\n')
-                    for entry in entries_to_add:
-                        f.write(f"{entry}\n")
-                
-        except Exception as e:
-            # Don't fail if we can't set up exclude, just warn
-            print(f"Warning: Could not setup git exclude: {e}", file=sys.stderr)
-
-    def get_manager_metadata_path(self) -> str:
-        """Get the path to the manager metadata file"""
-        return os.path.join(os.getcwd(), ".worktree-manager-metadata.json")
-
-    def load_manager_metadata(self) -> dict:
-        """Load manager metadata, create if doesn't exist"""
-        metadata_path = self.get_manager_metadata_path()
-        if os.path.exists(metadata_path):
-            try:
-                with open(metadata_path, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-        return {"worktrees": []}
-
-    def save_manager_metadata(self, metadata: dict) -> bool:
-        """Save manager metadata"""
-        try:
-            metadata_path = self.get_manager_metadata_path()
-            with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
-            return True
-        except:
-            return False
-
-    def add_worktree_to_manager(self, worktree_folder: str, tab_id: str) -> bool:
-        """Add worktree to manager metadata"""
-        metadata = self.load_manager_metadata()
-        
-        # Remove existing entry if it exists
-        metadata["worktrees"] = [w for w in metadata["worktrees"] if w["folder"] != worktree_folder]
-        
-        # Add new entry
-        metadata["worktrees"].append({
-            "folder": worktree_folder,
-            "tabId": tab_id
-        })
-        
-        return self.save_manager_metadata(metadata)
-
-    def remove_worktree_from_manager(self, worktree_folder: str) -> bool:
-        """Remove worktree from manager metadata"""
-        metadata = self.load_manager_metadata()
-        metadata["worktrees"] = [w for w in metadata["worktrees"] if w["folder"] != worktree_folder]
-        return self.save_manager_metadata(metadata)
-
-    def get_worktree_tab_id(self, worktree_folder: str) -> Optional[str]:
-        """Get tab ID for a worktree"""
-        metadata = self.load_manager_metadata()
-        for worktree in metadata["worktrees"]:
-            if worktree["folder"] == worktree_folder:
-                return worktree["tabId"]
-        return None
+        except subprocess.CalledProcessError:
+            return []
+        except Exception:
+            return []
 
     def validate_worktree_creation(self, branch_name: str, worktree_folder: str) -> tuple[bool, str]:
         """Validate if worktree can be created"""
@@ -258,29 +302,6 @@ class WorktreeMCPServer:
         except subprocess.CalledProcessError as e:
             return False, f"Failed to create worktree: {e.stderr}"
 
-    def create_worktree_metadata(self, worktree_folder: str, tab_id: str) -> tuple[bool, str]:
-        """Create .worktree-metadata.json file and configure git to skip it"""
-        try:
-            parent_dir = os.path.dirname(os.getcwd())
-            worktree_path = os.path.join(parent_dir, worktree_folder)
-            metadata_file = os.path.join(worktree_path, ".worktree-metadata.json")
-            
-            # Get parent worktree folder (the current directory name)
-            parent_worktree_folder = os.path.basename(os.getcwd())
-            
-            # Create metadata
-            metadata = {
-                "parentWorktreeFolder": parent_worktree_folder,
-                "worktreeItermTabId": tab_id
-            }
-            
-            # Write metadata file
-            with open(metadata_file, 'w') as f:
-                json.dump(metadata, f, indent=2)
-            
-            return True, f"Created metadata file at {metadata_file}"
-        except Exception as e:
-            return False, f"Failed to create metadata file: {str(e)}"
 
     async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True) -> tuple[bool, str]:
         """Automate iTerm to open new tab, cd to worktree, start claude, and paste description"""
@@ -313,18 +334,7 @@ class WorktreeMCPServer:
             # Optionally send claude command with disallowed tools and description as argument
             if start_claude:
                 escaped_description = description.replace('"', '\\"')
-                await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees\n')
-            
-            # Create metadata file
-            metadata_success, metadata_msg = self.create_worktree_metadata(worktree_folder, tab_id)
-            if not metadata_success:
-                # Don't fail the whole operation, just log the issue
-                print(f"Warning: {metadata_msg}", file=sys.stderr)
-            
-            # Add to manager metadata
-            manager_success = self.add_worktree_to_manager(worktree_folder, tab_id)
-            if not manager_success:
-                print(f"Warning: Failed to update manager metadata", file=sys.stderr)
+                await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees,mcp__worktree__switchToWorktree,mcp__worktree__openWorktree\n')
             
             # Switch back to original tab
             await original_tab.async_select()
@@ -420,6 +430,24 @@ class WorktreeMCPServer:
             
         except subprocess.CalledProcessError as e:
             return False, f"Failed to check worktree status: {e.stderr}"
+
+    async def check_iterm_tab_exists(self, tab_id: str) -> bool:
+        """Check if iTerm tab exists"""
+        try:
+            connection = await iterm2.Connection.async_create()
+            app = await iterm2.async_get_app(connection)
+            
+            # Find tab by ID
+            for window in app.windows:
+                for tab in window.tabs:
+                    if tab.tab_id == tab_id:
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            # If we can't connect to iTerm, assume tab doesn't exist
+            return False
 
     async def close_iterm_tab(self, tab_id: str) -> tuple[bool, str]:
         """Close iTerm tab if it exists"""
@@ -534,8 +562,10 @@ class WorktreeMCPServer:
         if isinstance(branch_name_or_error, str) and not has_commits:
             branch_to_delete = branch_name_or_error
         
-        # Step 3: Get tab ID before removing from manager
-        tab_id = self.get_worktree_tab_id(worktree_name)
+        # Step 3: Find tab ID dynamically by worktree path
+        parent_dir = os.path.dirname(os.getcwd())
+        worktree_path = os.path.join(parent_dir, worktree_name)
+        tab_id = await self.find_tab_by_path(worktree_path)
         
         # Step 4: Remove worktree
         try:
@@ -570,9 +600,6 @@ class WorktreeMCPServer:
         if tab_id:
             success, tab_msg = await self.close_iterm_tab(tab_id)
             tab_closed = success
-        
-        # Step 7: Remove from manager metadata
-        self.remove_worktree_from_manager(worktree_name)
         
         # Build success message
         message = f"✅ Successfully closed worktree '{worktree_name}'"
@@ -645,27 +672,45 @@ class WorktreeMCPServer:
             ]
         }
 
-    async def handle_active_worktrees(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the activeWorktrees tool call"""
-        metadata = self.load_manager_metadata()
-        worktrees = metadata.get("worktrees", [])
+    async def handle_list_worktrees(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle the listWorktrees tool call"""
+        # Get all git worktrees
+        git_worktrees = self.get_all_git_worktrees()
         
-        if not worktrees:
+        if not git_worktrees:
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": "📝 No active worktrees found"
+                        "text": "📝 No git worktrees found"
                     }
                 ]
             }
         
-        # Build the response with worktree details
-        response_lines = ["📋 Active Worktrees:"]
-        for i, worktree in enumerate(worktrees, 1):
-            folder = worktree.get("folder", "Unknown")
-            tab_id = worktree.get("tabId", "Unknown")
-            response_lines.append(f"  {i}. {folder} (Tab: {tab_id})")
+        # Check each worktree's tab status dynamically and build response
+        response_lines = ["📋 All Git Worktrees:"]
+        for i, git_worktree in enumerate(git_worktrees, 1):
+            folder = git_worktree.get("folder", "Unknown")
+            branch = git_worktree.get("branch", "Unknown")
+            path = git_worktree.get("path", "Unknown")
+            
+            # Find all iTerm2 tabs dynamically by path
+            matching_tabs = await self.find_all_tabs_by_path(path)
+            
+            if matching_tabs:
+                # Format tabs info
+                tab_info_parts = []
+                for tab in matching_tabs:
+                    tab_exists = await self.check_iterm_tab_exists(tab["tabId"])
+                    tab_status = "✅" if tab_exists else "❌"
+                    this_window_indicator = " (thisWindow)" if tab["thisWindow"] else ""
+                    tab_info_parts.append(f"Tab: {tab['tabId']}{this_window_indicator} {tab_status}")
+                
+                tab_info = ", ".join(tab_info_parts)
+                response_lines.append(f"  {i}. {folder} (Branch: {branch}, {tab_info})")
+            else:
+                # No tabs found with this worktree path
+                response_lines.append(f"  {i}. {folder} (Branch: {branch}, Path: {path}) 📍 No iTerm tabs found")
         
         return {
             "content": [
@@ -675,6 +720,185 @@ class WorktreeMCPServer:
                 }
             ]
         }
+
+    async def handle_switch_to_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle the switchToWorktree tool call"""
+        worktree_name = arguments["worktree_name"]
+        tab_id = arguments.get("tab_id")
+        
+        try:
+            connection = await iterm2.Connection.async_create()
+            app = await iterm2.async_get_app(connection)
+            
+            target_tab_id = None
+            
+            if tab_id:
+                # Tab ID provided - verify it exists
+                tab_exists = await self.check_iterm_tab_exists(tab_id)
+                if not tab_exists:
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"❌ Tab {tab_id} not found"
+                            }
+                        ]
+                    }
+                target_tab_id = tab_id
+            else:
+                # No tab ID provided - find by worktree path
+                parent_dir = os.path.dirname(os.getcwd())
+                worktree_path = os.path.join(parent_dir, worktree_name)
+                
+                # Check if worktree exists
+                if not os.path.exists(worktree_path):
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"❌ Worktree '{worktree_name}' does not exist at {worktree_path}"
+                            }
+                        ]
+                    }
+                
+                # Find tab by worktree path
+                target_tab_id = await self.find_tab_by_path(worktree_path)
+                if not target_tab_id:
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"❌ No iTerm tab found for worktree '{worktree_name}' at {worktree_path}"
+                            }
+                        ]
+                    }
+            
+            # Find and switch to the target tab
+            for window in app.windows:
+                for tab in window.tabs:
+                    if tab.tab_id == target_tab_id:
+                        await tab.async_select()
+                        return {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"✅ Switched to worktree '{worktree_name}' tab {target_tab_id}"
+                                }
+                            ]
+                        }
+            
+            # This shouldn't happen if check_iterm_tab_exists worked correctly
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"❌ Could not switch to tab {target_tab_id}"
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"❌ Failed to switch to worktree: {str(e)}"
+                    }
+                ]
+            }
+
+    async def handle_open_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle the openWorktree tool call"""
+        worktree_name = arguments["worktree_name"]
+        force = arguments.get("force", False)
+        
+        # Check if worktree exists
+        parent_dir = os.path.dirname(os.getcwd())
+        worktree_path = os.path.join(parent_dir, worktree_name)
+        
+        if not os.path.exists(worktree_path):
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"❌ Worktree '{worktree_name}' does not exist at {worktree_path}"
+                    }
+                ]
+            }
+        
+        # Check if worktree is already open in any tabs
+        existing_tabs = await self.find_all_tabs_by_path(worktree_path)
+        
+        if existing_tabs and not force:
+            # Worktree is already open and force is not set
+            tab_info_parts = []
+            for tab in existing_tabs:
+                this_window_indicator = " (thisWindow)" if tab["thisWindow"] else ""
+                tab_info_parts.append(f"Tab: {tab['tabId']}{this_window_indicator}")
+            
+            tab_info = ", ".join(tab_info_parts)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"❌ Worktree '{worktree_name}' is already open in {tab_info}. Use force=true to open in a new tab anyway."
+                    }
+                ]
+            }
+        
+        # Open worktree in new tab
+        try:
+            connection = await iterm2.Connection.async_create()
+            app = await iterm2.async_get_app(connection)
+            
+            # Get current window
+            window = app.current_window
+            if not window:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "❌ No current iTerm window found"
+                        }
+                    ]
+                }
+            
+            # Remember the original tab to switch back to
+            original_tab = window.current_tab
+            
+            # Create new tab
+            new_tab = await window.async_create_tab()
+            session = new_tab.current_session
+            
+            # Get tab ID
+            tab_id = new_tab.tab_id
+            
+            # Wait 1 second then cd to worktree
+            await asyncio.sleep(1)
+            await session.async_send_text(f"cd '{worktree_path}'\n")
+            
+            # Switch back to original tab
+            await original_tab.async_select()
+            
+            force_message = " (forced)" if force and existing_tabs else ""
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"✅ Opened worktree '{worktree_name}' in new tab {tab_id}{force_message}"
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"❌ Failed to open worktree: {str(e)}"
+                    }
+                ]
+            }
 
 async def handle_message(message: Dict[str, Any]) -> Dict[str, Any]:
     """Handle incoming MCP messages"""
@@ -706,7 +930,11 @@ async def handle_message(message: Dict[str, Any]) -> Dict[str, Any]:
         elif tool_name == "closeWorktree":
             return await server.handle_close_worktree(arguments)
         elif tool_name == "activeWorktrees":
-            return await server.handle_active_worktrees(arguments)
+            return await server.handle_list_worktrees(arguments)
+        elif tool_name == "switchToWorktree":
+            return await server.handle_switch_to_worktree(arguments)
+        elif tool_name == "openWorktree":
+            return await server.handle_open_worktree(arguments)
         else:
             return {
                 "content": [
