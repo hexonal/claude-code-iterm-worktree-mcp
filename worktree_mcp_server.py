@@ -70,7 +70,7 @@ class WorktreeMCPServer:
                         },
                         "start_claude": {
                             "type": "boolean",
-                            "description": "Whether to automatically start Claude with the task description (default: true)"
+                            "description": "Whether to automatically start Claude with the task description (default: false). Only set to true if you want Claude to start with a specific command."
                         }
                     },
                     "required": ["feature_name", "branch_name", "worktree_folder", "description"]
@@ -651,7 +651,7 @@ class WorktreeMCPServer:
             }
         
         # Steps 2-6: iTerm automation
-        start_claude = arguments.get("start_claude", True)  # Default to True for backward compatibility
+        start_claude = arguments.get("start_claude", False)  # Default to False to avoid guessing
         success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude)
         if not success:
             return {
