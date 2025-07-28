@@ -71,6 +71,15 @@ class WorktreeMCPServer:
                         "start_claude": {
                             "type": "boolean",
                             "description": "Whether to automatically start Claude with the task description (default: false). Only set to true if you want Claude to start with a specific command."
+                        },
+                        "open_location": {
+                            "type": "string",
+                            "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
+                            "description": "Where to open the worktree (default: new_tab). Options: new_tab (new tab), new_window (new window), new_pane_right (vertical split, new pane to right), new_pane_below (horizontal split, new pane below)"
+                        },
+                        "switch_back": {
+                            "type": "boolean",
+                            "description": "Whether to switch back to the original tab/window after opening the worktree (default: false). Only applies to new_tab and new_window locations."
                         }
                     },
                     "required": ["feature_name", "branch_name", "worktree_folder", "description"]
@@ -130,6 +139,15 @@ class WorktreeMCPServer:
                         "force": {
                             "type": "boolean",
                             "description": "Force open in new tab even if worktree is already open elsewhere (default: false)"
+                        },
+                        "open_location": {
+                            "type": "string",
+                            "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
+                            "description": "Where to open the worktree (default: new_tab). Options: new_tab (new tab), new_window (new window), new_pane_right (vertical split, new pane to right), new_pane_below (horizontal split, new pane below)"
+                        },
+                        "switch_back": {
+                            "type": "boolean",
+                            "description": "Whether to switch back to the original tab/window after opening the worktree (default: false). Only applies to new_tab and new_window locations."
                         }
                     },
                     "required": ["worktree_name"]
@@ -303,27 +321,58 @@ class WorktreeMCPServer:
             return False, f"Failed to create worktree: {e.stderr}"
 
 
-    async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True) -> tuple[bool, str]:
-        """Automate iTerm to open new tab, cd to worktree, start claude, and paste description"""
+    async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True, open_location: str = "new_tab", switch_back: bool = False) -> tuple[bool, str]:
+        """Automate iTerm to open worktree in specified location, cd to worktree, and optionally start claude"""
         try:
             # Connect to iTerm
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Get current window
-            window = app.current_window
-            if not window:
+            # Get current window and session for context
+            current_window = app.current_window
+            if not current_window:
                 return False, "No current iTerm window found"
             
-            # Remember the original tab to switch back to
-            original_tab = window.current_tab
+            original_tab = current_window.current_tab
+            original_session = original_tab.current_session if original_tab else None
             
-            # Create new tab
-            new_tab = await window.async_create_tab()
-            session = new_tab.current_session
+            session = None
+            tab_id = None
             
-            # Get tab ID for metadata
-            tab_id = new_tab.tab_id
+            # Create session based on open_location
+            if open_location == "new_window":
+                # Create new window
+                new_window = await iterm2.Window.async_create(connection)
+                session = new_window.current_tab.current_session
+                tab_id = new_window.current_tab.tab_id
+                
+            elif open_location == "new_tab":
+                # Create new tab (original behavior)
+                new_tab = await current_window.async_create_tab()
+                session = new_tab.current_session
+                tab_id = new_tab.tab_id
+                
+            elif open_location == "new_pane_right":
+                # Split pane vertically (new pane to the right)
+                if not original_session:
+                    return False, "No current session found for pane split"
+                session = await original_session.async_split_pane(vertical=True)
+                # For panes, we use the tab ID of the containing tab
+                tab_id = original_tab.tab_id
+                
+            elif open_location == "new_pane_below":
+                # Split pane horizontally (new pane below)
+                if not original_session:
+                    return False, "No current session found for pane split"
+                session = await original_session.async_split_pane(vertical=False)
+                # For panes, we use the tab ID of the containing tab
+                tab_id = original_tab.tab_id
+                
+            else:
+                return False, f"Invalid open_location: {open_location}"
+            
+            if not session:
+                return False, f"Failed to create session for {open_location}"
             
             # Wait 1 second then cd to worktree
             await asyncio.sleep(1)
@@ -336,10 +385,11 @@ class WorktreeMCPServer:
                 escaped_description = description.replace('"', '\\"')
                 await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees,mcp__worktree__switchToWorktree,mcp__worktree__openWorktree\n')
             
-            # Switch back to original tab
-            await original_tab.async_select()
+            # Switch back to original tab/window only if switch_back is True and for new_tab and new_window cases
+            if switch_back and open_location in ["new_tab", "new_window"] and original_tab:
+                await original_tab.async_select()
             
-            return True, "iTerm automation completed successfully"
+            return True, f"iTerm automation completed successfully ({open_location})"
             
         except Exception as e:
             return False, f"iTerm automation failed: {str(e)}"
@@ -652,7 +702,9 @@ class WorktreeMCPServer:
         
         # Steps 2-6: iTerm automation
         start_claude = arguments.get("start_claude", False)  # Default to False to avoid guessing
-        success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude)
+        open_location = arguments.get("open_location", "new_tab")  # Default to new_tab
+        switch_back = arguments.get("switch_back", False)  # Default to False
+        success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude, open_location, switch_back)
         if not success:
             return {
                 "content": [
@@ -811,6 +863,8 @@ class WorktreeMCPServer:
         """Handle the openWorktree tool call"""
         worktree_name = arguments["worktree_name"]
         force = arguments.get("force", False)
+        open_location = arguments.get("open_location", "new_tab")
+        switch_back = arguments.get("switch_back", False)
         
         # Check if worktree exists
         parent_dir = os.path.dirname(os.getcwd())
@@ -826,34 +880,35 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Check if worktree is already open in any tabs
-        existing_tabs = await self.find_all_tabs_by_path(worktree_path)
-        
-        if existing_tabs and not force:
-            # Worktree is already open and force is not set
-            tab_info_parts = []
-            for tab in existing_tabs:
-                this_window_indicator = " (thisWindow)" if tab["thisWindow"] else ""
-                tab_info_parts.append(f"Tab: {tab['tabId']}{this_window_indicator}")
+        # Check if worktree is already open in any tabs (only for new_tab and new_window)
+        if open_location in ["new_tab", "new_window"]:
+            existing_tabs = await self.find_all_tabs_by_path(worktree_path)
             
-            tab_info = ", ".join(tab_info_parts)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"❌ Worktree '{worktree_name}' is already open in {tab_info}. Use force=true to open in a new tab anyway."
-                    }
-                ]
-            }
+            if existing_tabs and not force:
+                # Worktree is already open and force is not set
+                tab_info_parts = []
+                for tab in existing_tabs:
+                    this_window_indicator = " (thisWindow)" if tab["thisWindow"] else ""
+                    tab_info_parts.append(f"Tab: {tab['tabId']}{this_window_indicator}")
+                
+                tab_info = ", ".join(tab_info_parts)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Worktree '{worktree_name}' is already open in {tab_info}. Use force=true to open in a new {open_location.replace('_', ' ')} anyway."
+                        }
+                    ]
+                }
         
-        # Open worktree in new tab
+        # Open worktree in specified location
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Get current window
-            window = app.current_window
-            if not window:
+            # Get current window and session for context
+            current_window = app.current_window
+            if not current_window:
                 return {
                     "content": [
                         {
@@ -863,29 +918,90 @@ class WorktreeMCPServer:
                     ]
                 }
             
-            # Remember the original tab to switch back to
-            original_tab = window.current_tab
+            original_tab = current_window.current_tab
+            original_session = original_tab.current_session if original_tab else None
             
-            # Create new tab
-            new_tab = await window.async_create_tab()
-            session = new_tab.current_session
+            session = None
+            tab_id = None
             
-            # Get tab ID
-            tab_id = new_tab.tab_id
+            # Create session based on open_location
+            if open_location == "new_window":
+                # Create new window
+                new_window = await iterm2.Window.async_create(connection)
+                session = new_window.current_tab.current_session
+                tab_id = new_window.current_tab.tab_id
+                
+            elif open_location == "new_tab":
+                # Create new tab (original behavior)
+                new_tab = await current_window.async_create_tab()
+                session = new_tab.current_session
+                tab_id = new_tab.tab_id
+                
+            elif open_location == "new_pane_right":
+                # Split pane vertically (new pane to the right)
+                if not original_session:
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "❌ No current session found for pane split"
+                            }
+                        ]
+                    }
+                session = await original_session.async_split_pane(vertical=True)
+                # For panes, we use the tab ID of the containing tab
+                tab_id = original_tab.tab_id
+                
+            elif open_location == "new_pane_below":
+                # Split pane horizontally (new pane below)
+                if not original_session:
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "❌ No current session found for pane split"
+                            }
+                        ]
+                    }
+                session = await original_session.async_split_pane(vertical=False)
+                # For panes, we use the tab ID of the containing tab
+                tab_id = original_tab.tab_id
+                
+            else:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Invalid open_location: {open_location}"
+                        }
+                    ]
+                }
+            
+            if not session:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"❌ Failed to create session for {open_location}"
+                        }
+                    ]
+                }
             
             # Wait 1 second then cd to worktree
             await asyncio.sleep(1)
             await session.async_send_text(f"cd '{worktree_path}'\n")
             
-            # Switch back to original tab
-            await original_tab.async_select()
+            # Switch back to original tab/window only if switch_back is True and for new_tab and new_window cases
+            if switch_back and open_location in ["new_tab", "new_window"] and original_tab:
+                await original_tab.async_select()
             
-            force_message = " (forced)" if force and existing_tabs else ""
+            force_message = " (forced)" if force and open_location in ["new_tab", "new_window"] else ""
+            location_display = open_location.replace('_', ' ')
             return {
                 "content": [
                     {
                         "type": "text",
-                        "text": f"✅ Opened worktree '{worktree_name}' in new tab {tab_id}{force_message}"
+                        "text": f"✅ Opened worktree '{worktree_name}' in {location_display} {tab_id}{force_message}"
                     }
                 ]
             }
