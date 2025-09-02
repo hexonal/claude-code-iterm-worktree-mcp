@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/iterm2_worktree_mcp.egg-info/PKG-INFO
+src/iterm2_worktree_mcp.egg-info/SOURCES.txt
+src/iterm2_worktree_mcp.egg-info/dependency_links.txt
+src/iterm2_worktree_mcp.egg-info/entry_points.txt
+src/iterm2_worktree_mcp.egg-info/requires.txt
+src/iterm2_worktree_mcp.egg-info/top_level.txt
+src/worktree_mcp/__init__.py
+src/worktree_mcp/communication.py
+src/worktree_mcp/core.py
+src/worktree_mcp/models.py
+src/worktree_mcp/server.py
+src/worktree_mcp/session_manager.py

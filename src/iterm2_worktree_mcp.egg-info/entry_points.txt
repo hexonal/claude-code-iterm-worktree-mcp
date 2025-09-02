@@ -1,0 +1,3 @@
+[console_scripts]
+iterm2-worktree-mcp = worktree_mcp.server:main
+worktree-mcp-server = worktree_mcp.server:main

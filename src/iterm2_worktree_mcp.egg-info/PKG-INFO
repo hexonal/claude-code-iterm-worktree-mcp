@@ -1,3 +1,35 @@
+Metadata-Version: 2.4
+Name: iterm2-worktree-mcp
+Version: 2.0.0
+Summary: iTerm2 集成的 git 工作树管理 MCP 服务器
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/your-username/iterm2-worktree-mcp
+Project-URL: Repository, https://github.com/your-username/iterm2-worktree-mcp
+Project-URL: Issues, https://github.com/your-username/iterm2-worktree-mcp/issues
+Keywords: mcp,git,worktree,iterm2,claude
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Tools
+Classifier: Topic :: Software Development :: Version Control :: Git
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastmcp>=2.0.0
+Requires-Dist: iterm2>=2.7
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pydantic-settings>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+
 # iTerm2 Worktree MCP Server
 
 🌐 **Language / 语言**: [English](README.md) | [中文](README_zh.md)
@@ -39,9 +71,9 @@ pip install -e .
 
 ## Configuration
 
-### Claude Code Configuration
+### Claude Desktop Configuration
 
-Add to your Claude Code MCP configuration:
+Add to your Claude Desktop configuration:
 
 ```json
 {
@@ -52,13 +84,7 @@ Add to your Claude Code MCP configuration:
         "--from", 
         "git+https://github.com/your-username/iterm2-worktree-mcp.git",
         "worktree-mcp-server"
-      ],
-      "env": {
-        "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "false",
-        "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true",
-        "WORKTREE_MCP_CLAUDE_SESSION_ID": "",
-        "WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS": ""
-      }
+      ]
     }
   }
 }
@@ -73,18 +99,17 @@ claude mcp add -s user worktree -- python3 path/to/worktree_mcp_server.py
 
 Configure Claude command behavior with these environment variables:
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS` | Skip permission prompts | `false` | `true` |
-| `WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING` | Enable session sharing | `true` | `true` |
-| `WORKTREE_MCP_CLAUDE_SESSION_ID` | Specific Claude session ID | None | `claude-code-123456-abc` |
-| `WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS` | Additional Claude arguments | None | `--some-flag` |
-
 ```bash
-# Export environment variables for shell usage
+# Skip permission prompts (equivalent to --dangerously-skip-permissions)
 export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true
+
+# Enable session sharing between main and sub-sessions
 export WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING=true
+
+# Set specific Claude session ID for --resume functionality
 export WORKTREE_MCP_CLAUDE_SESSION_ID=your-session-id
+
+# Additional Claude command arguments
 export WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS="--some-flag"
 ```
 
