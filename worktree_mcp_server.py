@@ -12,21 +12,21 @@ from typing import Any, Dict, List, Optional
 
 class WorktreeMCPServer:
     def __init__(self):
-        # Check if running in iTerm
+        # 检查是否在iTerm中运行
         self.is_iterm = self.detect_iterm()
         
-        # Only provide tools if running in iTerm
+        # 只有在iTerm中运行时才提供工具
         self.tools = self.get_tools() if self.is_iterm else []
 
     def detect_iterm(self) -> bool:
-        """Detect if the MCP server is running in iTerm"""
+        """检测MCP服务器是否在iTerm中运行"""
         try:
-            # Check environment variables that iTerm sets
+            # 检查iTerm设置的环境变量
             term_program = os.environ.get('TERM_PROGRAM', '')
             if term_program == 'iTerm.app':
                 return True
             
-            # Try to connect to iTerm to verify it's available
+            # 尝试连接到iTerm来验证其可用性
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -44,38 +44,38 @@ class WorktreeMCPServer:
             return False
 
     def get_tools(self) -> List[Dict[str, Any]]:
-        """Get the list of available tools"""
+        """获取可用工具列表"""
         return [
             {
                 "name": "createWorktree",
-                "description": "Create a git worktree with iTerm automation to start development",
+                "description": "创建git工作树并通过iTerm自动化启动开发",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "feature_name": {
                             "type": "string",
-                            "description": "The feature name to work on (e.g., 'add-auth')"
+                            "description": "要开发的功能名称 (例如: 'add-auth')"
                         },
                         "branch_name": {
                             "type": "string", 
-                            "description": "The branch name to use (e.g., 'feature/add-auth')"
+                            "description": "要使用的分支名称 (例如: 'feature/add-auth')"
                         },
                         "worktree_folder": {
                             "type": "string",
-                            "description": "The worktree folder name (e.g., 'project-name-feat-add-auth')"
+                            "description": "工作树文件夹名称 (例如: 'project-name-feat-add-auth')"
                         },
                         "description": {
                             "type": "string",
-                            "description": "Description of the task to do"
+                            "description": "要执行的任务描述"
                         },
                         "start_claude": {
                             "type": "boolean",
-                            "description": "Whether to automatically start Claude with the task description (default: false). Only set to true if you want Claude to start with a specific command."
+                            "description": "是否自动使用任务描述启动Claude (默认: false)。仅当您希望Claude使用特定命令启动时才设置为true。"
                         },
                         "open_location": {
                             "type": "string",
                             "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
-                            "description": "Where to open the worktree (default: new_tab). Options: new_tab (new tab), new_window (new window), new_pane_right (vertical split, new pane to right), new_pane_below (horizontal split, new pane below)"
+                            "description": "工作树打开位置 (默认: new_tab)。选项: new_tab (新标签页), new_window (新窗口), new_pane_right (垂直分割,右侧新窗格), new_pane_below (水平分割,下方新窗格)"
                         },
                         "switch_back": {
                             "type": "boolean",
@@ -87,13 +87,13 @@ class WorktreeMCPServer:
             },
             {
                 "name": "closeWorktree",
-                "description": "Close a worktree after checking it's clean and pushed",
+                "description": "在检查工作树已清理并推送后关闭工作树",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "worktree_name": {
                             "type": "string",
-                            "description": "The name of the worktree folder to close"
+                            "description": "要关闭的工作树文件夹名称"
                         }
                     },
                     "required": ["worktree_name"]
@@ -101,7 +101,7 @@ class WorktreeMCPServer:
             },
             {
                 "name": "activeWorktrees",
-                "description": "List all active worktrees managed by this MCP server",
+                "description": "列出此MCP服务器管理的所有活动工作树",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -110,17 +110,17 @@ class WorktreeMCPServer:
             },
             {
                 "name": "switchToWorktree",
-                "description": "Switch to a worktree tab in iTerm2",
+                "description": "在iTerm2中切换到工作树标签页",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "worktree_name": {
                             "type": "string",
-                            "description": "The name of the worktree folder to switch to"
+                            "description": "要切换到的工作树文件夹名称"
                         },
                         "tab_id": {
                             "type": "string",
-                            "description": "Optional specific tab ID to switch to. If not provided, will find tab by worktree path"
+                            "description": "可选的特定标签页ID。如果未提供，将通过工作树路径查找标签页"
                         }
                     },
                     "required": ["worktree_name"]
@@ -128,22 +128,22 @@ class WorktreeMCPServer:
             },
             {
                 "name": "openWorktree",
-                "description": "Open an existing worktree in a new iTerm2 tab",
+                "description": "在新的iTerm2标签页中打开现有工作树",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "worktree_name": {
                             "type": "string",
-                            "description": "The name of the worktree folder to open"
+                            "description": "要打开的工作树文件夹名称"
                         },
                         "force": {
                             "type": "boolean",
-                            "description": "Force open in new tab even if worktree is already open elsewhere (default: false)"
+                            "description": "即使工作树已在其他地方打开也强制在新标签页中打开 (默认: false)"
                         },
                         "open_location": {
                             "type": "string",
                             "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
-                            "description": "Where to open the worktree (default: new_tab). Options: new_tab (new tab), new_window (new window), new_pane_right (vertical split, new pane to right), new_pane_below (horizontal split, new pane below)"
+                            "description": "工作树打开位置 (默认: new_tab)。选项: new_tab (新标签页), new_window (新窗口), new_pane_right (垂直分割,右侧新窗格), new_pane_below (水平分割,下方新窗格)"
                         },
                         "switch_back": {
                             "type": "boolean",
@@ -156,20 +156,20 @@ class WorktreeMCPServer:
         ]
 
     async def find_tab_by_path(self, worktree_path: str) -> Optional[str]:
-        """Find iTerm2 tab ID that has the given worktree path as working directory"""
+        """查找具有给定工作树路径作为工作目录的iTerm2标签页ID"""
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Normalize the worktree path for comparison
+            # 规范化工作树路径以便比较
             normalized_worktree = os.path.normpath(worktree_path)
             
-            # Search through all tabs to find one with matching working directory
+            # 搜索所有标签页以找到匹配工作目录的标签页
             for window in app.windows:
                 for tab in window.tabs:
                     session = tab.current_session
                     if session:
-                        # Get the working directory of the session
+                        # 获取会话的工作目录
                         try:
                             working_dir = await session.async_get_variable("path")
                             if working_dir:
@@ -177,7 +177,7 @@ class WorktreeMCPServer:
                                 if normalized_working_dir == normalized_worktree:
                                     return tab.tab_id
                         except:
-                            # If we can't get the path, continue to next session
+                            # 如果无法获取路径，继续下一个会话
                             continue
             
             return None
@@ -187,15 +187,15 @@ class WorktreeMCPServer:
             return None
 
     async def find_all_tabs_by_path(self, worktree_path: str) -> List[Dict[str, Any]]:
-        """Find all iTerm2 tabs that have the given worktree path as working directory"""
+        """查找所有具有给定工作树路径作为工作目录的iTerm2标签页"""
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Normalize the worktree path for comparison
+            # 规范化工作树路径以便比较
             normalized_worktree = os.path.normpath(worktree_path)
             
-            # Get current window to determine thisWindow flag
+            # 获取当前窗口以确定thisWindow标志
             current_window = app.current_window
             current_window_id = current_window.window_id if current_window else None
             
@@ -206,7 +206,7 @@ class WorktreeMCPServer:
                 for tab in window.tabs:
                     session = tab.current_session
                     if session:
-                        # Get the working directory of the session
+                        # 获取会话的工作目录
                         try:
                             working_dir = await session.async_get_variable("path")
                             if working_dir:
@@ -218,7 +218,7 @@ class WorktreeMCPServer:
                                         "thisWindow": window.window_id == current_window_id
                                     })
                         except:
-                            # If we can't get the path, continue to next session
+                            # 如果无法获取路径，继续下一个会话
                             continue
             
             return matching_tabs
@@ -229,7 +229,7 @@ class WorktreeMCPServer:
 
 
     def get_all_git_worktrees(self) -> List[Dict[str, str]]:
-        """Get all git worktrees from git command"""
+        """从git命令获取所有git工作树"""
         try:
             result = subprocess.run(
                 ["git", "worktree", "list", "--porcelain"],
@@ -250,14 +250,14 @@ class WorktreeMCPServer:
                     
                 if line.startswith('worktree '):
                     current_worktree['path'] = line[9:]  # Remove 'worktree ' prefix
-                    # Extract folder name from path
+                    # 从路径中提取文件夹名称
                     current_worktree['folder'] = os.path.basename(current_worktree['path'])
                 elif line.startswith('branch '):
                     current_worktree['branch'] = line[7:]  # Remove 'branch ' prefix
                 elif line.startswith('HEAD '):
                     current_worktree['head'] = line[5:]  # Remove 'HEAD ' prefix
             
-            # Add the last worktree if exists
+            # 如果存在则添加最后一个工作树
             if current_worktree:
                 worktrees.append(current_worktree)
             
@@ -269,8 +269,8 @@ class WorktreeMCPServer:
             return []
 
     def validate_worktree_creation(self, branch_name: str, worktree_folder: str) -> tuple[bool, str]:
-        """Validate if worktree can be created"""
-        # Check if we're in a git repo
+        """验证是否可以创建工作树"""
+        # 检查是否在git仓库中
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--git-dir"],
@@ -281,7 +281,7 @@ class WorktreeMCPServer:
         except subprocess.CalledProcessError:
             return False, "Not in a git repository"
 
-        # Check if branch already exists
+        # 检查分支是否已存在
         try:
             result = subprocess.run(
                 ["git", "branch", "--list", branch_name],
@@ -294,7 +294,7 @@ class WorktreeMCPServer:
         except subprocess.CalledProcessError:
             return False, "Failed to check if branch exists"
 
-        # Check if worktree folder already exists in parent directory
+        # 检查工作树文件夹是否已在父目录中存在
         parent_dir = os.path.dirname(os.getcwd())
         worktree_path = os.path.join(parent_dir, worktree_folder)
         if os.path.exists(worktree_path):
@@ -303,12 +303,12 @@ class WorktreeMCPServer:
         return True, "Validation passed"
 
     def create_worktree(self, branch_name: str, worktree_folder: str) -> tuple[bool, str]:
-        """Create the git worktree"""
+        """创建git工作树"""
         try:
             parent_dir = os.path.dirname(os.getcwd())
             worktree_path = os.path.join(parent_dir, worktree_folder)
             
-            # Create worktree with new branch
+            # 使用新分支创建工作树
             result = subprocess.run(
                 ["git", "worktree", "add", "-b", branch_name, worktree_path],
                 capture_output=True,
@@ -322,13 +322,13 @@ class WorktreeMCPServer:
 
 
     async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True, open_location: str = "new_tab", switch_back: bool = False) -> tuple[bool, str]:
-        """Automate iTerm to open worktree in specified location, cd to worktree, and optionally start claude"""
+        """自动化iTerm在指定位置打开工作树，切换到工作树目录，并可选地启动claude"""
         try:
-            # Connect to iTerm
+            # 连接到iTerm
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Get current window and session for context
+            # 获取当前窗口和会话作为上下文
             current_window = app.current_window
             if not current_window:
                 return False, "No current iTerm window found"
@@ -339,33 +339,33 @@ class WorktreeMCPServer:
             session = None
             tab_id = None
             
-            # Create session based on open_location
+            # 根据open_location创建会话
             if open_location == "new_window":
-                # Create new window
+                # 创建新窗口
                 new_window = await iterm2.Window.async_create(connection)
                 session = new_window.current_tab.current_session
                 tab_id = new_window.current_tab.tab_id
                 
             elif open_location == "new_tab":
-                # Create new tab (original behavior)
+                # 创建新标签页（原始行为）
                 new_tab = await current_window.async_create_tab()
                 session = new_tab.current_session
                 tab_id = new_tab.tab_id
                 
             elif open_location == "new_pane_right":
-                # Split pane vertically (new pane to the right)
+                # 垂直分割窗格（新窗格在右侧）
                 if not original_session:
                     return False, "No current session found for pane split"
                 session = await original_session.async_split_pane(vertical=True)
-                # For panes, we use the tab ID of the containing tab
+                # 对于窗格，我们使用包含该窗格的标签页ID
                 tab_id = original_tab.tab_id
                 
             elif open_location == "new_pane_below":
-                # Split pane horizontally (new pane below)
+                # 水平分割窗格（新窗格在下方）
                 if not original_session:
                     return False, "No current session found for pane split"
                 session = await original_session.async_split_pane(vertical=False)
-                # For panes, we use the tab ID of the containing tab
+                # 对于窗格，我们使用包含该窗格的标签页ID
                 tab_id = original_tab.tab_id
                 
             else:
@@ -374,18 +374,18 @@ class WorktreeMCPServer:
             if not session:
                 return False, f"Failed to create session for {open_location}"
             
-            # Wait 1 second then cd to worktree
+            # 等待1秒然后切换到工作树目录
             await asyncio.sleep(1)
             parent_dir = os.path.dirname(os.getcwd())
             worktree_path = os.path.join(parent_dir, worktree_folder)
             await session.async_send_text(f"cd '{worktree_path}'\n")
             
-            # Optionally send claude command with disallowed tools and description as argument
+            # 可选地发送claude命令，包含禁用工具和任务描述作为参数
             if start_claude:
                 escaped_description = description.replace('"', '\\"')
                 await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees,mcp__worktree__switchToWorktree,mcp__worktree__openWorktree\n')
             
-            # Switch back to original tab/window only if switch_back is True and for new_tab and new_window cases
+            # 仅当switch_back为True且对于new_tab和new_window情况时才切换回原标签页/窗口
             if switch_back and open_location in ["new_tab", "new_window"] and original_tab:
                 await original_tab.async_select()
             
@@ -395,7 +395,7 @@ class WorktreeMCPServer:
             return False, f"iTerm automation failed: {str(e)}"
 
     def validate_worktree_closure(self, worktree_name: str) -> tuple[bool, str]:
-        """Validate if worktree can be closed (clean and pushed)"""
+        """验证工作树是否可以关闭（已清理且已推送）"""
         parent_dir = os.path.dirname(os.getcwd())
         worktree_path = os.path.join(parent_dir, worktree_name)
         
@@ -403,7 +403,7 @@ class WorktreeMCPServer:
             return False, f"Worktree '{worktree_name}' does not exist"
         
         try:
-            # Check if git status is clean
+            # 检查git状态是否干净
             result = subprocess.run(
                 ["git", "status", "--porcelain"],
                 cwd=worktree_path,
@@ -415,8 +415,8 @@ class WorktreeMCPServer:
             if result.stdout.strip():
                 return False, f"Worktree has uncommitted changes: {result.stdout.strip()}"
             
-            # Check if all commits are pushed (if upstream exists)
-            # First check if there's an upstream branch
+            # 检查所有提交是否已推送（如果上游存在）
+            # 首先检查是否有上游分支
             upstream_check = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "@{u}"],
                 cwd=worktree_path,
@@ -425,7 +425,7 @@ class WorktreeMCPServer:
             )
             
             if upstream_check.returncode == 0:
-                # Upstream exists, check for unpushed commits
+                # 上游存在，检查未推送的提交
                 result = subprocess.run(
                     ["git", "log", "--oneline", "@{u}..HEAD"],
                     cwd=worktree_path,
@@ -437,8 +437,8 @@ class WorktreeMCPServer:
                 if result.stdout.strip():
                     return False, f"Worktree has unpushed commits: {result.stdout.strip()}"
             else:
-                # No upstream, check if there are commits ahead of the base branch
-                # First get the base branch (usually main/master)
+                # 没有上游，检查是否有超前于基分支的提交
+                # 首先获取基分支（通常是main/master）
                 base_branch_result = subprocess.run(
                     ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
                     cwd=worktree_path,
@@ -447,10 +447,10 @@ class WorktreeMCPServer:
                 )
                 
                 if base_branch_result.returncode == 0:
-                    # Extract base branch name from refs/remotes/origin/HEAD
+                    # 从refs/remotes/origin/HEAD提取基分支名称
                     base_branch = base_branch_result.stdout.strip().split('/')[-1]
                 else:
-                    # Fallback to common base branch names
+                    # 回退到常见的基分支名称
                     for branch in ["main", "master"]:
                         check_result = subprocess.run(
                             ["git", "rev-parse", "--verify", f"origin/{branch}"],
@@ -462,10 +462,10 @@ class WorktreeMCPServer:
                             base_branch = branch
                             break
                     else:
-                        # If we can't determine base branch, allow deletion if working tree is clean
+                        # 如果无法确定基分支，在工作树干净时允许删除
                         return True, "Worktree is clean and can be deleted"
                 
-                # Check for commits ahead of base branch
+                # 检查超前于基分支的提交
                 result = subprocess.run(
                     ["git", "log", "--oneline", f"origin/{base_branch}..HEAD"],
                     cwd=worktree_path,
@@ -482,12 +482,12 @@ class WorktreeMCPServer:
             return False, f"Failed to check worktree status: {e.stderr}"
 
     async def check_iterm_tab_exists(self, tab_id: str) -> bool:
-        """Check if iTerm tab exists"""
+        """检查iTerm标签页是否存在"""
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Find tab by ID
+            # 通过ID查找标签页
             for window in app.windows:
                 for tab in window.tabs:
                     if tab.tab_id == tab_id:
@@ -496,16 +496,16 @@ class WorktreeMCPServer:
             return False
             
         except Exception as e:
-            # If we can't connect to iTerm, assume tab doesn't exist
+            # 如果无法连接到iTerm，假设标签页不存在
             return False
 
     async def close_iterm_tab(self, tab_id: str) -> tuple[bool, str]:
-        """Close iTerm tab if it exists"""
+        """如果iTerm标签页存在则关闭它"""
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Find tab by ID
+            # 通过ID查找标签页
             for window in app.windows:
                 for tab in window.tabs:
                     if tab.tab_id == tab_id:
@@ -518,12 +518,12 @@ class WorktreeMCPServer:
             return False, f"Failed to close tab: {str(e)}"
 
     def check_branch_has_commits(self, worktree_name: str) -> tuple[bool, str]:
-        """Check if the worktree's branch has any commits beyond the base branch"""
+        """检查工作树的分支是否有超出基分支的提交"""
         parent_dir = os.path.dirname(os.getcwd())
         worktree_path = os.path.join(parent_dir, worktree_name)
         
         try:
-            # Get the current branch name
+            # 获取当前分支名称
             branch_result = subprocess.run(
                 ["git", "branch", "--show-current"],
                 cwd=worktree_path,
@@ -533,7 +533,7 @@ class WorktreeMCPServer:
             )
             current_branch = branch_result.stdout.strip()
             
-            # Get base branch (usually main/master)
+            # 获取基分支（通常是main/master）
             base_branch_result = subprocess.run(
                 ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
                 cwd=worktree_path,
@@ -576,9 +576,9 @@ class WorktreeMCPServer:
             return False, f"Failed to check branch commits: {e.stderr}"
 
     def delete_branch(self, branch_name: str) -> tuple[bool, str]:
-        """Delete a git branch"""
+        """删除git分支"""
         try:
-            # Delete the branch
+            # 删除分支
             result = subprocess.run(
                 ["git", "branch", "-D", branch_name],
                 capture_output=True,
@@ -591,10 +591,10 @@ class WorktreeMCPServer:
             return False, f"Failed to delete branch '{branch_name}': {e.stderr}"
 
     async def handle_close_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the closeWorktree tool call"""
+        """处理closeWorktree工具调用"""
         worktree_name = arguments["worktree_name"]
         
-        # Step 1: Validate worktree can be closed
+        # 步骤1: 验证工作树可以关闭
         valid, validation_msg = self.validate_worktree_closure(worktree_name)
         if not valid:
             return {
@@ -606,18 +606,18 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Step 2: Check if branch has commits and get branch name
+        # 步骤2: 检查分支是否有提交并获取分支名称
         has_commits, branch_name_or_error = self.check_branch_has_commits(worktree_name)
         branch_to_delete = None
         if isinstance(branch_name_or_error, str) and not has_commits:
             branch_to_delete = branch_name_or_error
         
-        # Step 3: Find tab ID dynamically by worktree path
+        # 步骤3: 通过工作树路径动态查找标签页ID
         parent_dir = os.path.dirname(os.getcwd())
         worktree_path = os.path.join(parent_dir, worktree_name)
         tab_id = await self.find_tab_by_path(worktree_path)
         
-        # Step 4: Remove worktree
+        # 步骤4: 移除工作树
         try:
             parent_dir = os.path.dirname(os.getcwd())
             worktree_path = os.path.join(parent_dir, worktree_name)
@@ -639,19 +639,19 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Step 5: Delete branch if it has no commits
+        # 步骤5: 如果分支没有提交则删除分支
         branch_deleted = False
         if branch_to_delete:
             success, delete_msg = self.delete_branch(branch_to_delete)
             branch_deleted = success
         
-        # Step 6: Close iTerm tab if it exists
+        # 步骤6: 如果iTerm标签页存在则关闭它
         tab_closed = False
         if tab_id:
             success, tab_msg = await self.close_iterm_tab(tab_id)
             tab_closed = success
         
-        # Build success message
+        # 构建成功消息
         message = f"✅ Successfully closed worktree '{worktree_name}'"
         if branch_deleted:
             message += f" and deleted branch '{branch_to_delete}'"
@@ -670,13 +670,13 @@ class WorktreeMCPServer:
         }
 
     async def handle_create_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the createWorktree tool call"""
+        """处理createWorktree工具调用"""
         feature_name = arguments["feature_name"]
         branch_name = arguments["branch_name"] 
         worktree_folder = arguments["worktree_folder"]
         description = arguments["description"]
         
-        # Step 0: Validate
+        # 步骤0: 验证
         valid, validation_msg = self.validate_worktree_creation(branch_name, worktree_folder)
         if not valid:
             return {
@@ -688,7 +688,7 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Step 1: Create worktree
+        # 步骤1: 创建工作树
         success, worktree_msg = self.create_worktree(branch_name, worktree_folder)
         if not success:
             return {
@@ -700,10 +700,10 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Steps 2-6: iTerm automation
-        start_claude = arguments.get("start_claude", False)  # Default to False to avoid guessing
-        open_location = arguments.get("open_location", "new_tab")  # Default to new_tab
-        switch_back = arguments.get("switch_back", False)  # Default to False
+        # 步骤2-6: iTerm自动化
+        start_claude = arguments.get("start_claude", False)  # 默认为False以避免猜测
+        open_location = arguments.get("open_location", "new_tab")  # 默认为new_tab
+        switch_back = arguments.get("switch_back", False)  # 默认为False
         success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude, open_location, switch_back)
         if not success:
             return {
@@ -725,8 +725,8 @@ class WorktreeMCPServer:
         }
 
     async def handle_list_worktrees(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the listWorktrees tool call"""
-        # Get all git worktrees
+        """处理listWorktrees工具调用"""
+        # 获取所有git工作树
         git_worktrees = self.get_all_git_worktrees()
         
         if not git_worktrees:
@@ -739,18 +739,18 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Check each worktree's tab status dynamically and build response
+        # 动态检查每个工作树的标签页状态并构建响应
         response_lines = ["📋 All Git Worktrees:"]
         for i, git_worktree in enumerate(git_worktrees, 1):
             folder = git_worktree.get("folder", "Unknown")
             branch = git_worktree.get("branch", "Unknown")
             path = git_worktree.get("path", "Unknown")
             
-            # Find all iTerm2 tabs dynamically by path
+            # 通过路径动态查找所有iTerm2标签页
             matching_tabs = await self.find_all_tabs_by_path(path)
             
             if matching_tabs:
-                # Format tabs info
+                # 格式化标签页信息
                 tab_info_parts = []
                 for tab in matching_tabs:
                     tab_exists = await self.check_iterm_tab_exists(tab["tabId"])
@@ -761,7 +761,7 @@ class WorktreeMCPServer:
                 tab_info = ", ".join(tab_info_parts)
                 response_lines.append(f"  {i}. {folder} (Branch: {branch}, {tab_info})")
             else:
-                # No tabs found with this worktree path
+                # 没有找到使用此工作树路径的标签页
                 response_lines.append(f"  {i}. {folder} (Branch: {branch}, Path: {path}) 📍 No iTerm tabs found")
         
         return {
@@ -774,7 +774,7 @@ class WorktreeMCPServer:
         }
 
     async def handle_switch_to_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the switchToWorktree tool call"""
+        """处理switchToWorktree工具调用"""
         worktree_name = arguments["worktree_name"]
         tab_id = arguments.get("tab_id")
         
@@ -785,7 +785,7 @@ class WorktreeMCPServer:
             target_tab_id = None
             
             if tab_id:
-                # Tab ID provided - verify it exists
+                # 提供了标签页ID - 验证其存在
                 tab_exists = await self.check_iterm_tab_exists(tab_id)
                 if not tab_exists:
                     return {
@@ -798,11 +798,11 @@ class WorktreeMCPServer:
                     }
                 target_tab_id = tab_id
             else:
-                # No tab ID provided - find by worktree path
+                # 未提供标签页ID - 通过工作树路径查找
                 parent_dir = os.path.dirname(os.getcwd())
                 worktree_path = os.path.join(parent_dir, worktree_name)
                 
-                # Check if worktree exists
+                # 检查工作树是否存在
                 if not os.path.exists(worktree_path):
                     return {
                         "content": [
@@ -813,7 +813,7 @@ class WorktreeMCPServer:
                         ]
                     }
                 
-                # Find tab by worktree path
+                # 通过工作树路径查找标签页
                 target_tab_id = await self.find_tab_by_path(worktree_path)
                 if not target_tab_id:
                     return {
@@ -825,7 +825,7 @@ class WorktreeMCPServer:
                         ]
                     }
             
-            # Find and switch to the target tab
+            # 查找并切换到目标标签页
             for window in app.windows:
                 for tab in window.tabs:
                     if tab.tab_id == target_tab_id:
@@ -839,7 +839,7 @@ class WorktreeMCPServer:
                             ]
                         }
             
-            # This shouldn't happen if check_iterm_tab_exists worked correctly
+            # 如果check_iterm_tab_exists工作正常，这种情况不应该发生
             return {
                 "content": [
                     {
@@ -860,7 +860,7 @@ class WorktreeMCPServer:
             }
 
     async def handle_open_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the openWorktree tool call"""
+        """处理openWorktree工具调用"""
         worktree_name = arguments["worktree_name"]
         force = arguments.get("force", False)
         open_location = arguments.get("open_location", "new_tab")
@@ -880,12 +880,12 @@ class WorktreeMCPServer:
                 ]
             }
         
-        # Check if worktree is already open in any tabs (only for new_tab and new_window)
+        # 检查工作树是否已在任何标签页中打开（仅针对new_tab和new_window）
         if open_location in ["new_tab", "new_window"]:
             existing_tabs = await self.find_all_tabs_by_path(worktree_path)
             
             if existing_tabs and not force:
-                # Worktree is already open and force is not set
+                # 工作树已打开且未设置强制选项
                 tab_info_parts = []
                 for tab in existing_tabs:
                     this_window_indicator = " (thisWindow)" if tab["thisWindow"] else ""
@@ -901,12 +901,12 @@ class WorktreeMCPServer:
                     ]
                 }
         
-        # Open worktree in specified location
+        # 在指定位置打开工作树
         try:
             connection = await iterm2.Connection.async_create()
             app = await iterm2.async_get_app(connection)
             
-            # Get current window and session for context
+            # 获取当前窗口和会话作为上下文
             current_window = app.current_window
             if not current_window:
                 return {
@@ -924,21 +924,21 @@ class WorktreeMCPServer:
             session = None
             tab_id = None
             
-            # Create session based on open_location
+            # 根据open_location创建会话
             if open_location == "new_window":
-                # Create new window
+                # 创建新窗口
                 new_window = await iterm2.Window.async_create(connection)
                 session = new_window.current_tab.current_session
                 tab_id = new_window.current_tab.tab_id
                 
             elif open_location == "new_tab":
-                # Create new tab (original behavior)
+                # 创建新标签页（原始行为）
                 new_tab = await current_window.async_create_tab()
                 session = new_tab.current_session
                 tab_id = new_tab.tab_id
                 
             elif open_location == "new_pane_right":
-                # Split pane vertically (new pane to the right)
+                # 垂直分割窗格（新窗格在右侧）
                 if not original_session:
                     return {
                         "content": [
@@ -949,11 +949,11 @@ class WorktreeMCPServer:
                         ]
                     }
                 session = await original_session.async_split_pane(vertical=True)
-                # For panes, we use the tab ID of the containing tab
+                # 对于窗格，我们使用包含该窗格的标签页ID
                 tab_id = original_tab.tab_id
                 
             elif open_location == "new_pane_below":
-                # Split pane horizontally (new pane below)
+                # 水平分割窗格（新窗格在下方）
                 if not original_session:
                     return {
                         "content": [
@@ -964,7 +964,7 @@ class WorktreeMCPServer:
                         ]
                     }
                 session = await original_session.async_split_pane(vertical=False)
-                # For panes, we use the tab ID of the containing tab
+                # 对于窗格，我们使用包含该窗格的标签页ID
                 tab_id = original_tab.tab_id
                 
             else:
@@ -987,11 +987,11 @@ class WorktreeMCPServer:
                     ]
                 }
             
-            # Wait 1 second then cd to worktree
+            # 等待1秒然后切换到工作树目录
             await asyncio.sleep(1)
             await session.async_send_text(f"cd '{worktree_path}'\n")
             
-            # Switch back to original tab/window only if switch_back is True and for new_tab and new_window cases
+            # 仅当switch_back为True且对于new_tab和new_window情况时才切换回原标签页/窗口
             if switch_back and open_location in ["new_tab", "new_window"] and original_tab:
                 await original_tab.async_select()
             
@@ -1017,7 +1017,7 @@ class WorktreeMCPServer:
             }
 
 async def handle_message(message: Dict[str, Any]) -> Dict[str, Any]:
-    """Handle incoming MCP messages"""
+    """处理传入的MCP消息"""
     server = WorktreeMCPServer()
     
     method = message.get("method")
@@ -1073,8 +1073,8 @@ async def handle_message(message: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 async def main():
-    """Main MCP server loop"""
-    # Read messages from stdin and write responses to stdout
+    """主MCP服务器循环"""
+    # 从stdin读取消息并将响应写入stdout
     while True:
         try:
             line = sys.stdin.readline()
@@ -1084,7 +1084,7 @@ async def main():
             message = json.loads(line.strip())
             response = await handle_message(message)
             
-            # Send response with proper MCP format
+            # 使用正确的MCP格式发送响应
             response_obj = {
                 "jsonrpc": "2.0",
                 "id": message.get("id"),
