@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iterm2-worktree-mcp"
+version = "2.0.0"
+description = "iTerm2 集成的 git 工作树管理 MCP 服务器"
+authors = [
+    {name = "Your Name", email = "w741069229@gmail.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = ["mcp", "git", "worktree", "iterm2", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers", 
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Tools",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+
+dependencies = [
+    "fastmcp>=2.0.0",
+    "iterm2>=2.7",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+worktree-mcp-server = "worktree_mcp.server:main"
+iterm2-worktree-mcp = "worktree_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/iterm2-worktree-mcp"
+Repository = "https://github.com/your-username/iterm2-worktree-mcp"
+Issues = "https://github.com/your-username/iterm2-worktree-mcp/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "T20", "Q"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"

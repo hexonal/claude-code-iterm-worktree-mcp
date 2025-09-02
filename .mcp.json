@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "worktree": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/your-username/iterm2-worktree-mcp.git",
+        "worktree-mcp-server"
+      ],
+      "env": {
+        "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "true",
+        "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true"
+      }
+    }
+  }
+}
