@@ -46,49 +46,62 @@ class ClaudeSessionManager:
         )
     
     def _detect_current_session_immediately(self) -> Optional[Dict[str, str]]:
-        """在 MCP 服务器启动时立即检测当前会话信息 - 最准确的方法"""
+        """在 MCP 服务器启动时立即检测当前会话信息 - 通过当前进程链"""
         try:
-            # 方法1: 直接搜索所有包含当前会话快照的进程
+            # 方法1: 检查当前进程的父进程链，找到当前会话的快照文件
+            current_pid = os.getpid()
+            
             result = subprocess.run(
-                ["ps", "-eo", "pid,args"],
+                ["ps", "-eo", "pid,ppid,args"],
                 capture_output=True,
                 text=True
             )
             
-            import re
-            # 查找所有快照进程，优先当前会话
-            snapshot_processes = []
-            for line in result.stdout.split('\n'):
-                if '.claude/shell-snapshots/snapshot-' in line:
-                    match = re.search(r'snapshot-[^-]+-(\d+)-([a-zA-Z0-9]+)\.sh', line)
+            # 构建进程映射
+            processes = {}
+            for line in result.stdout.split('\n')[1:]:
+                parts = line.strip().split(None, 2)
+                if len(parts) >= 3:
+                    pid, ppid, args = parts[0], parts[1], parts[2]
+                    processes[pid] = {"ppid": ppid, "args": args}
+            
+            # 从当前 MCP 进程向上追溯，找到属于当前会话的快照文件
+            pid = str(current_pid)
+            depth = 0
+            while pid in processes and pid not in ['1', '0'] and depth < 15:
+                proc_info = processes[pid]
+                args = proc_info["args"]
+                
+                # 检查当前会话的快照文件 - 这是准确的当前会话标识
+                if '.claude/shell-snapshots/snapshot-' in args:
+                    import re
+                    match = re.search(r'snapshot-[^-]+-(\d+)-([a-zA-Z0-9]+)\.sh', args)
                     if match:
                         timestamp, session_suffix = match.groups()
                         session_id = f"claude-code-{timestamp}-{session_suffix}"
-                        # 获取PID
-                        pid_match = re.match(r'\s*(\d+)', line)
-                        if pid_match:
-                            pid = pid_match.group(1)
-                            snapshot_processes.append({
-                                "session_id": session_id,
-                                "pid": pid,
-                                "timestamp": timestamp,
-                                "line": line.strip()
-                            })
+                        return {
+                            "session_id": session_id,
+                            "source": "current_process_tree",
+                            "message": f"从当前MCP进程链获取会话：{session_id} (PID追溯)"
+                        }
+                
+                # 移到父进程继续查找
+                pid = proc_info["ppid"]
+                depth += 1
             
-            if snapshot_processes:
-                # 按时间戳排序，取最新的
-                latest_session = max(snapshot_processes, key=lambda x: int(x["timestamp"]))
-                return {
-                    "session_id": latest_session["session_id"],
-                    "source": "shell_snapshots_scan",
-                    "message": f"从快照进程扫描获取最新会话：{latest_session['session_id']}"
-                }
-            
-            # 方法2: 环境变量检测
+            # 方法2: 检查环境变量
             env_session = self._detect_from_environment()
             if env_session:
                 return env_session
-                
+            
+            # 方法3: 检查Claude Code特有的环境变量
+            if os.environ.get("CLAUDECODE") == "1" or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+                # 我们在Claude Code环境中，但无法通过进程链找到会话
+                # 尝试从当前工作目录或其他Claude Code线索获取
+                claude_session = self._detect_from_claude_code_context()
+                if claude_session:
+                    return claude_session
+                    
             return None
         except Exception as e:
             # 添加错误日志以便调试
@@ -117,6 +130,32 @@ class ClaudeSessionManager:
                         "source": f"environment_variable_{var}",
                         "message": f"从环境变量 {var} 获取：{value}"
                     }
+            
+            return None
+        except:
+            return None
+    
+    def _detect_from_claude_code_context(self) -> Optional[Dict[str, str]]:
+        """从Claude Code上下文检测会话信息"""
+        try:
+            # 检查是否有Claude Code特有的文件或目录
+            home_dir = os.path.expanduser("~")
+            claude_dir = os.path.join(home_dir, ".claude")
+            
+            if os.path.exists(claude_dir):
+                # 查找最近的会话文件
+                import glob
+                session_files = glob.glob(os.path.join(claude_dir, "sessions", "*"))
+                if session_files:
+                    # 按修改时间排序，取最新的
+                    latest_session = max(session_files, key=os.path.getmtime)
+                    session_name = os.path.basename(latest_session)
+                    if session_name.startswith("claude-code-"):
+                        return {
+                            "session_id": session_name,
+                            "source": "claude_code_context",
+                            "message": f"从Claude Code上下文获取：{session_name}"
+                        }
             
             return None
         except:
