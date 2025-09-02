@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/16188878-8fe8-450c-b2a3-cfd617d74f43
 python --version
 
 # 使用 uvx 安装
-uvx --from git+https://github.com/your-username/iterm2-worktree-mcp.git worktree-mcp-server
+uvx --from git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git worktree-mcp-server
 ```
 
 ### 使用 pip
@@ -22,12 +22,12 @@ uvx --from git+https://github.com/your-username/iterm2-worktree-mcp.git worktree
 # 确保 Python 3.10+
 python --version
 
-pip install git+https://github.com/your-username/iterm2-worktree-mcp.git
+pip install git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git
 ```
 
 ### 开发环境安装
 ```bash
-git clone https://github.com/your-username/iterm2-worktree-mcp.git
+git clone git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git
 cd iterm2-worktree-mcp
 
 # 使用 Python 3.10+ 创建虚拟环境
@@ -50,7 +50,7 @@ pip install -e .
       "command": "uvx",
       "args": [
         "--from", 
-        "git+https://github.com/your-username/iterm2-worktree-mcp.git",
+        "git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git",
         "worktree-mcp-server"
       ],
       "env": {

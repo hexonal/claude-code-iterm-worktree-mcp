@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/16188878-8fe8-450c-b2a3-cfd617d74f43
 python --version
 
 # Install with uvx
-uvx --from git+https://github.com/your-username/iterm2-worktree-mcp.git worktree-mcp-server
+uvx --from git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git worktree-mcp-server
 ```
 
 ### Using pip
@@ -22,12 +22,12 @@ uvx --from git+https://github.com/your-username/iterm2-worktree-mcp.git worktree
 # Ensure Python 3.10+
 python --version
 
-pip install git+https://github.com/your-username/iterm2-worktree-mcp.git
+pip install git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git
 ```
 
 ### Development Installation
 ```bash
-git clone https://github.com/your-username/iterm2-worktree-mcp.git
+git clone git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git
 cd iterm2-worktree-mcp
 
 # Create virtual environment with Python 3.10+
@@ -50,7 +50,7 @@ Add to your Claude Code MCP configuration:
       "command": "uvx",
       "args": [
         "--from", 
-        "git+https://github.com/your-username/iterm2-worktree-mcp.git",
+        "git+git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git",
         "worktree-mcp-server"
       ],
       "env": {
