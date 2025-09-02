@@ -4,13 +4,23 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/your-username/iterm2-worktree-mcp.git",
+        "git+https://github.com/hexonal/claude-code-iterm-worktree-mcp.git",
         "worktree-mcp-server"
       ],
       "env": {
         "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "true",
-        "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true"
+        "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true",
+        "WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH": "/Users/flink/PycharmProjects/claude-code-iterm-worktree-mcp/.mcp.json"
       }
+    },
+    "worktree-fixed": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "-m",
+        "src.worktree_mcp.server"
+      ],
+      "env": {}
     }
   }
 }

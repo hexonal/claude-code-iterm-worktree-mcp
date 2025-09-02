@@ -48,44 +48,75 @@ class ClaudeSessionManager:
     def _detect_current_session_immediately(self) -> Optional[Dict[str, str]]:
         """在 MCP 服务器启动时立即检测当前会话信息 - 最准确的方法"""
         try:
-            # 获取当前进程的父进程链，找到属于当前会话的 Claude Code 进程
-            current_pid = os.getpid()
-            
+            # 方法1: 直接搜索所有包含当前会话快照的进程
             result = subprocess.run(
-                ["ps", "-eo", "pid,ppid,args"],
+                ["ps", "-eo", "pid,args"],
                 capture_output=True,
                 text=True
             )
             
-            # 构建进程映射
-            processes = {}
-            for line in result.stdout.split('\n')[1:]:
-                parts = line.strip().split(None, 2)
-                if len(parts) >= 3:
-                    pid, ppid, args = parts[0], parts[1], parts[2]
-                    processes[pid] = {"ppid": ppid, "args": args}
-            
-            # 从当前 MCP 进程向上追溯，找到启动这个 MCP 实例的 Claude Code 会话
-            pid = str(current_pid)
-            while pid in processes and pid not in ['1', '0']:
-                proc_info = processes[pid]
-                args = proc_info["args"]
-                
-                # 检查 Claude Code 的 shell 快照进程 - 这是当前会话的唯一标识
-                if '.claude/shell-snapshots/snapshot-' in args:
-                    import re
-                    match = re.search(r'snapshot-[^-]+-(\d+)-([a-zA-Z0-9]+)\.sh', args)
+            import re
+            # 查找所有快照进程，优先当前会话
+            snapshot_processes = []
+            for line in result.stdout.split('\n'):
+                if '.claude/shell-snapshots/snapshot-' in line:
+                    match = re.search(r'snapshot-[^-]+-(\d+)-([a-zA-Z0-9]+)\.sh', line)
                     if match:
                         timestamp, session_suffix = match.groups()
                         session_id = f"claude-code-{timestamp}-{session_suffix}"
-                        return {
-                            "session_id": session_id,
-                            "source": "mcp_process_tree",
-                            "message": f"从当前 MCP 会话进程树获取：{session_id}"
-                        }
+                        # 获取PID
+                        pid_match = re.match(r'\s*(\d+)', line)
+                        if pid_match:
+                            pid = pid_match.group(1)
+                            snapshot_processes.append({
+                                "session_id": session_id,
+                                "pid": pid,
+                                "timestamp": timestamp,
+                                "line": line.strip()
+                            })
+            
+            if snapshot_processes:
+                # 按时间戳排序，取最新的
+                latest_session = max(snapshot_processes, key=lambda x: int(x["timestamp"]))
+                return {
+                    "session_id": latest_session["session_id"],
+                    "source": "shell_snapshots_scan",
+                    "message": f"从快照进程扫描获取最新会话：{latest_session['session_id']}"
+                }
+            
+            # 方法2: 环境变量检测
+            env_session = self._detect_from_environment()
+            if env_session:
+                return env_session
                 
-                # 移到父进程继续查找
-                pid = proc_info["ppid"]
+            return None
+        except Exception as e:
+            # 添加错误日志以便调试
+            try:
+                import logging
+                logging.debug(f"Session detection failed: {e}")
+            except:
+                pass
+            return None
+    
+    def _detect_from_environment(self) -> Optional[Dict[str, str]]:
+        """从环境变量检测会话信息"""
+        try:
+            # 检查常见的Claude环境变量
+            claude_vars = [
+                "CLAUDE_SESSION_ID",
+                "CLAUDE_CODE_SESSION",
+                "MCP_SESSION_ID"
+            ]
+            
+            for var in claude_vars:
+                value = os.environ.get(var)
+                if value and len(value) > 10:  # 基本长度检查
+                    return {
+                        "session_id": value,
+                        "source": f"environment_variable_{var}",
+                        "message": f"从环境变量 {var} 获取：{value}"
+                    }
             
             return None
         except:
