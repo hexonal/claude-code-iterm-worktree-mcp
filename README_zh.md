@@ -57,6 +57,7 @@ pip install -e .
         "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "false",
         "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true",
         "WORKTREE_MCP_CLAUDE_SESSION_ID": "",
+        "WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH": "",
         "WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS": ""
       }
     }
@@ -77,14 +78,16 @@ claude mcp add -s user worktree -- python3 path/to/worktree_mcp_server.py
 |----------|-------------|---------|---------|  
 | `WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS` | 跳过权限提示 | `false` | `true` |
 | `WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING` | 启用会话共享 | `true` | `true` |
-| `WORKTREE_MCP_CLAUDE_SESSION_ID` | 特定Claude会话ID | None | `claude-code-123456-abc` |
+| `WORKTREE_MCP_CLAUDE_SESSION_ID` | Claude会话ID（空值则自动检测） | 自动检测 | `claude-code-123456-abc` |
+| `WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH` | MCP配置文件路径 | None | `~/.claude/mcp.json` |
 | `WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS` | 额外Claude参数 | None | `--some-flag` |
 
 ```bash
 # Shell环境变量导出示例
 export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true
 export WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING=true
-export WORKTREE_MCP_CLAUDE_SESSION_ID=your-session-id
+# WORKTREE_MCP_CLAUDE_SESSION_ID="" # 留空以启用自动检测
+# export WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH="~/.claude/worktree-mcp.json"
 export WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS="--some-flag"
 ```
 

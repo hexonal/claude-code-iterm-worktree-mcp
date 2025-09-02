@@ -119,6 +119,10 @@ class ClaudeSessionManager:
         ]
         cmd_parts.append(f"--disallowedTools {','.join(disallowed_tools)}")
         
+        # 添加MCP配置文件支持
+        if self.config.claude_mcp_config_path:
+            cmd_parts.extend(["--mcp-config", f'"{self.config.claude_mcp_config_path}"'])
+        
         # 添加额外参数
         if self.config.claude_additional_args:
             cmd_parts.append(self.config.claude_additional_args)

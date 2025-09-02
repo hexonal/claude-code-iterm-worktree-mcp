@@ -102,6 +102,10 @@ class WorktreeConfig(BaseSettings):
         default="",
         description="Claude 命令的额外参数"
     )
+    claude_mcp_config_path: Optional[str] = Field(
+        default=None,
+        description="MCP 配置文件路径 (用于 --mcp-config 参数)"
+    )
     
     class Config:
         env_prefix = "WORKTREE_MCP_"

@@ -57,6 +57,7 @@ Add to your Claude Code MCP configuration:
         "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "false",
         "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true",
         "WORKTREE_MCP_CLAUDE_SESSION_ID": "",
+        "WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH": "",
         "WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS": ""
       }
     }
@@ -77,14 +78,16 @@ Configure Claude command behavior with these environment variables:
 |----------|-------------|---------|---------|
 | `WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS` | Skip permission prompts | `false` | `true` |
 | `WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING` | Enable session sharing | `true` | `true` |
-| `WORKTREE_MCP_CLAUDE_SESSION_ID` | Specific Claude session ID | None | `claude-code-123456-abc` |
+| `WORKTREE_MCP_CLAUDE_SESSION_ID` | Claude session ID (auto-detected if empty) | Auto-detect | `claude-code-123456-abc` |
+| `WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH` | MCP configuration file path | None | `~/.claude/mcp.json` |
 | `WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS` | Additional Claude arguments | None | `--some-flag` |
 
 ```bash
 # Export environment variables for shell usage
 export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true
 export WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING=true
-export WORKTREE_MCP_CLAUDE_SESSION_ID=your-session-id
+# WORKTREE_MCP_CLAUDE_SESSION_ID="" # Leave empty for auto-detection
+# export WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH="~/.claude/worktree-mcp.json"
 export WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS="--some-flag"
 ```
 
