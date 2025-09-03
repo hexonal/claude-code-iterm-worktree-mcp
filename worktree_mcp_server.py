@@ -32,20 +32,26 @@ class WorktreeMCPServer:
                 print("Warning: iTerm.app not running", file=sys.stderr)
                 return False
             
-            # 尝试连接到iTerm来验证其可用性
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 检查是否已经有运行的事件循环
             try:
-                connection = loop.run_until_complete(iterm2.Connection.async_create())
-                loop.run_until_complete(connection.async_close())
+                # 如果已经在运行的事件循环中，跳过 iTerm API 测试，假设可用
+                asyncio.get_running_loop()
+                # 如果能到达这里，说明已经在事件循环中运行
                 return True
-            except Exception as conn_error:
-                print(f"Warning: iTerm API not available: {conn_error}", file=sys.stderr)
-                print("Hint: Enable iTerm Python API in Preferences > General > Magic", file=sys.stderr)
-                return False
-            finally:
-                loop.close()
+            except RuntimeError:
+                # 没有运行的事件循环，安全创建新的
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    connection = loop.run_until_complete(iterm2.Connection.async_create())
+                    loop.run_until_complete(connection.async_close())
+                    return True
+                except Exception as conn_error:
+                    print(f"Warning: iTerm API not available: {conn_error}", file=sys.stderr)
+                    print("Hint: Enable iTerm Python API in Preferences > General > Magic", file=sys.stderr)
+                    return False
+                finally:
+                    loop.close()
                 
         except Exception as e:
             print(f"Warning: Could not detect iTerm: {e}", file=sys.stderr)
