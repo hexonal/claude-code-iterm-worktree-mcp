@@ -76,19 +76,47 @@ claude mcp add -s user worktree -- python3 path/to/worktree_mcp_server.py
 
 | 变量 | 描述 | 默认值 | 示例 |
 |----------|-------------|---------|---------|  
-| `WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS` | 跳过权限提示 | `false` | `true` |
-| `WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING` | 启用会话共享 | `true` | `true` |
+| `WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS` | 跳过权限提示（⚠️ 安全风险） | `false` | `true` |
+| `WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING` | 启用会话共享和自动检测 | `true` | `true` |
 | `WORKTREE_MCP_CLAUDE_SESSION_ID` | Claude会话ID（空值则自动检测） | 自动检测 | `claude-code-123456-abc` |
-| `WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH` | MCP配置文件路径 | None | `~/.claude/mcp.json` |
-| `WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS` | 额外Claude参数 | None | `--some-flag` |
+| `WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH` | 自定义MCP配置文件路径 | None | `~/.claude/mcp.json` |
+| `WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS` | 额外Claude命令行参数 | None | `--verbose --debug` |
+
+#### ⚠️ 安全警告
+
+**`WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true`** 会添加 `--dangerously-skip-permissions` 参数：
+- ✅ 优点：自动化工作流，无需手动确认权限
+- ❌ 风险：跳过Claude的安全检查，可能执行未经授权的操作
+- 🔒 建议：仅在受信任的环境和项目中使用
+- 🛡️ 默认：`false`（更安全的选择）
+
+#### MCP 配置文件支持
+
+通过 `WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH` 可以指定自定义的 MCP 配置文件：
 
 ```bash
-# Shell环境变量导出示例
-export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true
+export WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH="~/.claude/worktree-mcp.json"
+```
+
+这允许子会话使用不同的 MCP 服务器配置，实现更灵活的开发工作流。例如：
+- 主会话：使用完整的 MCP 配置（包括所有服务器）
+- 子会话：使用精简配置（仅必要的服务器，避免冲突）
+
+#### 配置示例
+
+```bash
+# 基本安全配置（推荐）
+export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=false  # 保持安全检查
 export WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING=true
-# WORKTREE_MCP_CLAUDE_SESSION_ID="" # 留空以启用自动检测
-# export WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH="~/.claude/worktree-mcp.json"
-export WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS="--some-flag"
+export WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS="--verbose"
+
+# 自动化配置（仅限受信任环境）
+export WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS=true   # ⚠️ 风险：跳过权限检查
+export WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH="~/.claude/worktree-mcp.json"
+
+# 高级会话管理
+export WORKTREE_MCP_CLAUDE_SESSION_ID="claude-code-main-session"
+export WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING=false  # 禁用自动检测
 ```
 
 这些设置会影响在新工作树会话中启动 Claude 的方式，实现主会话和子会话之间的无缝集成。

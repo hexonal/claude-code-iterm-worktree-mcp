@@ -6,7 +6,12 @@
       "args": [
         "/Users/flink/PycharmProjects/claude-code-iterm-worktree-mcp/worktree_mcp_server.py"
       ],
-      "env": {}
+      "env": {
+        "WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS": "true",
+        "WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING": "true",
+        "WORKTREE_MCP_CLAUDE_SESSION_ID": "c2a0c72c-6c54-4edf-bff9-004d6881ba3e",
+        "WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH": "/Users/flink/PycharmProjects/claude-code-iterm-worktree-mcp/.mcp.json",
+      }
     }
   }
 }

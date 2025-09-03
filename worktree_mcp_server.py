@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -341,6 +342,65 @@ class WorktreeMCPServer:
         except subprocess.CalledProcessError as e:
             return False, f"Failed to create worktree: {e.stderr}"
 
+    def detect_current_session_id(self) -> str:
+        """自动检测当前 Claude 会话 ID"""
+        try:
+            # 尝试从环境变量中获取会话ID
+            import re
+            
+            # 检查进程树获取Claude会话ID
+            result = subprocess.run(['ps', 'axo', 'pid,ppid,command'], capture_output=True, text=True)
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'claude' in line and ('--resume' in line or '-r' in line):
+                        # 提取会话ID模式
+                        match = re.search(r'claude.*?(?:-r|--resume)\s+([a-zA-Z0-9-]+)', line)
+                        if match:
+                            return match.group(1)
+            
+            # 尝试从当前进程的命令行参数获取
+            import sys
+            for i, arg in enumerate(sys.argv):
+                if arg in ['-r', '--resume'] and i + 1 < len(sys.argv):
+                    return sys.argv[i + 1]
+                    
+            return ""
+        except Exception:
+            return ""
+
+    def build_claude_command(self, description: str) -> str:
+        """根据环境变量构建完整的Claude命令"""
+        claude_args = ["claude"]
+        
+        # 1. MCP 配置文件路径
+        mcp_config_path = os.getenv("WORKTREE_MCP_CLAUDE_MCP_CONFIG_PATH", "").strip()
+        if mcp_config_path:
+            claude_args.extend(["--mcp-config", mcp_config_path])
+        
+        # 2. Session ID 和 -r 参数（互相关联）
+        session_id = os.getenv("WORKTREE_MCP_CLAUDE_SESSION_ID", "").strip()
+        if not session_id and os.getenv("WORKTREE_MCP_CLAUDE_ENABLE_SESSION_SHARING", "true").lower() == "true":
+            session_id = self.detect_current_session_id()
+        
+        if session_id:
+            claude_args.extend(["-r", session_id])
+        
+        # 3. 权限跳过参数
+        if os.getenv("WORKTREE_MCP_CLAUDE_SKIP_PERMISSIONS", "false").lower() == "true":
+            claude_args.append("--dangerously-skip-permissions")
+        
+        # 4. 额外参数
+        additional_args = os.getenv("WORKTREE_MCP_CLAUDE_ADDITIONAL_ARGS", "").strip()
+        if additional_args:
+            claude_args.extend(shlex.split(additional_args))
+        
+        # 5. 任务描述和禁用工具
+        escaped_desc = description.replace('"', '\\"')
+        claude_args.extend([escaped_desc, "--disallowedTools", 
+                           "mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees,mcp__worktree__switchToWorktree,mcp__worktree__openWorktree"])
+        
+        return " ".join(shlex.quote(arg) for arg in claude_args)
 
     async def automate_iterm(self, worktree_folder: str, description: str, start_claude: bool = True, open_location: str = "new_tab", switch_back: bool = False) -> tuple[bool, str]:
         """自动化iTerm在指定位置打开工作树，切换到工作树目录，并可选地启动claude"""
@@ -403,8 +463,8 @@ class WorktreeMCPServer:
             
             # 可选地发送claude命令，包含禁用工具和任务描述作为参数
             if start_claude:
-                escaped_description = description.replace('"', '\\"')
-                await session.async_send_text(f'claude "{escaped_description}" --disallowedTools mcp__worktree__createWorktree,mcp__worktree__closeWorktree,mcp__worktree__activeWorktrees,mcp__worktree__switchToWorktree,mcp__worktree__openWorktree\n')
+                claude_command = self.build_claude_command(description)
+                await session.async_send_text(f'{claude_command}\n')
             
             # 仅当switch_back为True且对于new_tab和new_window情况时才切换回原标签页/窗口
             if switch_back and open_location in ["new_tab", "new_window"] and original_tab:
