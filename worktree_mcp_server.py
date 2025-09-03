@@ -23,8 +23,14 @@ class WorktreeMCPServer:
         try:
             # 检查iTerm设置的环境变量
             term_program = os.environ.get('TERM_PROGRAM', '')
-            if term_program == 'iTerm.app':
-                return True
+            if term_program != 'iTerm.app':
+                return False
+            
+            # 检查iTerm是否正在运行
+            result = subprocess.run(['pgrep', '-f', 'iTerm'], capture_output=True, text=True)
+            if result.returncode != 0:
+                print("Warning: iTerm.app not running", file=sys.stderr)
+                return False
             
             # 尝试连接到iTerm来验证其可用性
             import asyncio
@@ -34,7 +40,9 @@ class WorktreeMCPServer:
                 connection = loop.run_until_complete(iterm2.Connection.async_create())
                 loop.run_until_complete(connection.async_close())
                 return True
-            except:
+            except Exception as conn_error:
+                print(f"Warning: iTerm API not available: {conn_error}", file=sys.stderr)
+                print("Hint: Enable iTerm Python API in Preferences > General > Magic", file=sys.stderr)
                 return False
             finally:
                 loop.close()
@@ -52,37 +60,44 @@ class WorktreeMCPServer:
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "feature_name": {
-                            "type": "string",
-                            "description": "要开发的功能名称 (例如: 'add-auth')"
-                        },
-                        "branch_name": {
-                            "type": "string", 
-                            "description": "要使用的分支名称 (例如: 'feature/add-auth')"
-                        },
-                        "worktree_folder": {
-                            "type": "string",
-                            "description": "工作树文件夹名称 (例如: 'project-name-feat-add-auth')"
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "要执行的任务描述"
-                        },
-                        "start_claude": {
-                            "type": "boolean",
-                            "description": "是否自动使用任务描述启动Claude (默认: false)。仅当您希望Claude使用特定命令启动时才设置为true。"
-                        },
-                        "open_location": {
-                            "type": "string",
-                            "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
-                            "description": "工作树打开位置 (默认: new_tab)。选项: new_tab (新标签页), new_window (新窗口), new_pane_right (垂直分割,右侧新窗格), new_pane_below (水平分割,下方新窗格)"
-                        },
-                        "switch_back": {
-                            "type": "boolean",
-                            "description": "Whether to switch back to the original tab/window after opening the worktree (default: false). Only applies to new_tab and new_window locations."
+                        "request": {
+                            "type": "object",
+                            "description": "创建工作树请求模型",
+                            "properties": {
+                                "feature_name": {
+                                    "type": "string",
+                                    "description": "要开发的功能名称 (例如: 'add-auth')"
+                                },
+                                "branch_name": {
+                                    "type": "string", 
+                                    "description": "要使用的分支名称 (例如: 'feature/add-auth')"
+                                },
+                                "worktree_folder": {
+                                    "type": "string",
+                                    "description": "工作树文件夹名称 (例如: 'project-name-feat-add-auth')"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "要执行的任务描述"
+                                },
+                                "start_claude": {
+                                    "type": "boolean",
+                                    "description": "是否自动使用任务描述启动Claude (默认: false)。仅当您希望Claude使用特定命令启动时才设置为true。"
+                                },
+                                "open_location": {
+                                    "type": "string",
+                                    "enum": ["new_tab", "new_window", "new_pane_right", "new_pane_below"],
+                                    "description": "工作树打开位置 (默认: new_tab)。选项: new_tab (新标签页), new_window (新窗口), new_pane_right (垂直分割,右侧新窗格), new_pane_below (水平分割,下方新窗格)"
+                                },
+                                "switch_back": {
+                                    "type": "boolean",
+                                    "description": "Whether to switch back to the original tab/window after opening the worktree (default: false). Only applies to new_tab and new_window locations."
+                                }
+                            },
+                            "required": ["feature_name", "branch_name", "worktree_folder", "description"]
                         }
                     },
-                    "required": ["feature_name", "branch_name", "worktree_folder", "description"]
+                    "required": ["request"]
                 }
             },
             {
@@ -392,7 +407,11 @@ class WorktreeMCPServer:
             return True, f"iTerm automation completed successfully ({open_location})"
             
         except Exception as e:
-            return False, f"iTerm automation failed: {str(e)}"
+            error_msg = str(e)
+            if "Connect call failed" in error_msg or "Connection refused" in error_msg:
+                return False, f"iTerm automation failed: Unable to connect to iTerm API. Please enable 'Python API' in iTerm2 Preferences > General > Magic, then restart iTerm2. Error: {error_msg}"
+            else:
+                return False, f"iTerm automation failed: {error_msg}"
 
     def validate_worktree_closure(self, worktree_name: str) -> tuple[bool, str]:
         """验证工作树是否可以关闭（已清理且已推送）"""
@@ -671,10 +690,11 @@ class WorktreeMCPServer:
 
     async def handle_create_worktree(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """处理createWorktree工具调用"""
-        feature_name = arguments["feature_name"]
-        branch_name = arguments["branch_name"] 
-        worktree_folder = arguments["worktree_folder"]
-        description = arguments["description"]
+        request = arguments["request"]
+        feature_name = request["feature_name"]
+        branch_name = request["branch_name"] 
+        worktree_folder = request["worktree_folder"]
+        description = request["description"]
         
         # 步骤0: 验证
         valid, validation_msg = self.validate_worktree_creation(branch_name, worktree_folder)
@@ -701,9 +721,9 @@ class WorktreeMCPServer:
             }
         
         # 步骤2-6: iTerm自动化
-        start_claude = arguments.get("start_claude", False)  # 默认为False以避免猜测
-        open_location = arguments.get("open_location", "new_tab")  # 默认为new_tab
-        switch_back = arguments.get("switch_back", False)  # 默认为False
+        start_claude = request.get("start_claude", False)  # 默认为False以避免猜测
+        open_location = request.get("open_location", "new_tab")  # 默认为new_tab
+        switch_back = request.get("switch_back", False)  # 默认为False
         success, iterm_msg = await self.automate_iterm(worktree_folder, description, start_claude, open_location, switch_back)
         if not success:
             return {
@@ -1040,6 +1060,10 @@ async def handle_message(message: Dict[str, Any]) -> Dict[str, Any]:
     elif method == "tools/call":
         tool_name = message["params"]["name"]
         arguments = message["params"]["arguments"]
+        
+# Debug: Log arguments structure
+        print(f"DEBUG: Tool {tool_name} called with arguments type: {type(arguments)}", file=sys.stderr)
+        print(f"DEBUG: Arguments content: {arguments}", file=sys.stderr)
         
         if tool_name == "createWorktree":
             return await server.handle_create_worktree(arguments)
