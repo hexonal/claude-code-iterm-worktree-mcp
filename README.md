@@ -4,6 +4,13 @@
 
 A Model Context Protocol (MCP) server that automates git worktree management with iTerm2 integration for Claude Code.
 
+## 🚀 New Feature: Test Merge Flow
+
+This section demonstrates the merge flow testing functionality:
+- Automated worktree creation and management
+- Conflict resolution testing
+- Integration with Claude Code workflow
+
 https://github.com/user-attachments/assets/16188878-8fe8-450c-b2a3-cfd617d74f43
 
 ## Installation
