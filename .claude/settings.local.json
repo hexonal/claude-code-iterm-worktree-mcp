@@ -1,5 +1,5 @@
 {
-   "includeCoAuthoredBy": false,
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Bash(chmod:*)",
@@ -22,5 +22,18 @@
       "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"\">.sessionId"
+          }
+        ]
+      }
+    ]
   }
 }

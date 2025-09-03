@@ -346,17 +346,6 @@ async def analyze_worktree_changes(worktree_name: str) -> Dict[str, Any]:
     return analyzer.analyze_worktree_changes(worktree_name)
 
 
-@mcp.tool()
-async def get_current_session_id() -> Dict[str, Any]:
-    """获取当前 Claude 会话的 session ID（新功能：会话管理）"""
-    session_response = claude_session_manager.get_current_session_id()
-    
-    return {
-        "session_id": session_response.session_id,
-        "source": session_response.source,
-        "success": session_response.success,
-        "message": session_response.message
-    }
 
 
 def main():
